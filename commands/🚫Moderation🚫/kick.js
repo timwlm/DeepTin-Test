@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
+const { sendLogMessage } = require("../../utils/logging.js"); // Pfad entsprechend anpassen
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -57,21 +58,3 @@ module.exports = {
         }
     }
 };
-
-// 📌 Funktion zur Speicherung der Logs
-function logModerationAction(guildId, userId, action, moderator, reason) {
-    const logs = fs.existsSync(moderationLogsPath) ? JSON.parse(fs.readFileSync(moderationLogsPath, "utf8")) : {};
-
-    if (!logs[guildId]) logs[guildId] = [];
-
-    logs[guildId].push({
-        userId: userId,
-        action: action,
-        moderator: moderator,
-        reason: reason,
-        timestamp: new Date().toISOString()
-    });
-
-    fs.writeFileSync(moderationLogsPath, JSON.stringify(logs, null, 4));
-    console.log(`✅ [LOG] ${action} für User ${userId} durch ${moderator}`);
-}

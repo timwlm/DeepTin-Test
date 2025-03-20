@@ -1,58 +1,53 @@
 const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+const { sendLogMessage } = require("../../utils/logging.js"); // Pfad entsprechend anpassen
 
-const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
-
-// 📌 Funktion zum Speichern der Moderationsaktion
-function logModerationAction(guildId, userId, action, moderator, reason) {
-    const moderationLogs = fs.existsSync(moderationLogsPath)
-        ? JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"))
-        : {};
-
-    if (!moderationLogs[guildId]) {
-        moderationLogs[guildId] = [];
-    }
-
-    const logEntry = {
-        userId: userId,
-        action: action,
-        moderator: moderator,
-        reason: reason,
-        timestamp: new Date().toISOString()
-    };
-
-    moderationLogs[guildId].push(logEntry);
-    fs.writeFileSync(moderationLogsPath, JSON.stringify(moderationLogs, null, 4));
-    console.log(`✅ [LOG] ${action} durch ${moderator}`);
-}
-
+console.log("logModerationAction:", typeof logModerationAction);
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('clear')
-        .setDescription('Deletes a specified number of messages from the current channel.')
-        .addIntegerOption(option => 
-            option.setName('number')
-                .setDescription('The number of messages to be deleted (max. 100)')
-                .setRequired(true)),
+        .setDescription('Löscht eine bestimmte Anzahl von Nachrichten.')
+        .addIntegerOption(option =>
+            option.setName('anzahl')
+                .setDescription('Anzahl der zu löschenden Nachrichten (max. 100)')
+                .setRequired(true)
+        )
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        const amount = interaction.options.getInteger('anzahl');
 
-        const amount = interaction.options.getInteger('number');
         if (amount < 1 || amount > 100) {
-            return await interaction.editReply({ content: "❌ You can only delete between 1 and 100 messages!", ephemeral: true });
+            return interaction.reply({ content: "❌ Gib eine Zahl zwischen 1 und 100 an.", ephemeral: true });
         }
 
         try {
-            await interaction.channel.bulkDelete(amount, true);
-            logModerationAction(interaction.guild.id, interaction.user.id, "clear", interaction.user.tag, `Deleted ${amount} messages`);
+            // 📌 Lösche Nachrichten
+            const deletedMessages = await interaction.channel.bulkDelete(amount, true);
 
-            await interaction.editReply({ content: `✅ **${amount}** messages deleted.`, ephemeral: true });
+            if (deletedMessages.size === 0) {
+                return interaction.reply({ content: "⚠️ Es konnten keine Nachrichten gelöscht werden. (Sind sie älter als 14 Tage?)", ephemeral: true });
+            }
+
+            // ✅ Antwort an den Moderator senden
+            await interaction.deferReply({ ephemeral: true });
+            await interaction.editReply({ content: `✅ ${deletedMessages.size} Nachrichten gelöscht.` });
+
+            // 📩 Log-Nachricht senden
+            sendLogMessage(interaction.guild.id, {
+                userId: "-", // Benutzer ist irrelevant
+                action: "clear",
+                moderator: `<@${interaction.user.id}>`,  // Ping des Moderators
+                reason: `${deletedMessages.size} Nachrichten gelöscht.`,
+                timestamp: new Date().toISOString()
+            }, interaction.client);
 
         } catch (error) {
-            console.error("❌ Error deleting messages", error);
-            await interaction.editReply({ content: "❌ Error!", ephemeral: true });
+            console.error(`❌ Fehler beim Löschen von Nachrichten:`, error);
+
+            // 🔥 Falls ein Fehler auftritt (z.B. Nachrichten zu alt), sichere Antwort verhindern
+            if (!interaction.replied) {
+                await interaction.reply({ content: "❌ Fehler beim Löschen der Nachrichten.", ephemeral: true });
+            }
         }
-    },
+    }
 };

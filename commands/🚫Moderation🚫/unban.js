@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-
+const { sendLogMessage } = require("../../utils/logging.js"); // Pfad entsprechend anpassen
 const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
 
 // 📌 Funktion zum Speichern der Moderationsaktion
@@ -70,9 +70,6 @@ module.exports = {
             // ✅ Nutzer entbannen
             await guild.bans.remove(userId);
             console.log(`✅ ${bannedUser.user.tag} got unbanned.`);
-
-            // 📌 Moderationslog speichern
-            logModerationAction(interaction.guild.id, userId, "unban", interaction.user.tag, "No reason provided");
 
             // 🎟 Automatischen Einladungslink generieren
             let inviteChannel = guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.CreateInstantInvite));

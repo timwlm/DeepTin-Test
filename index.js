@@ -604,7 +604,7 @@ client.on("guildCreate", async (guild) => {
     }
 
     // **2️⃣ Ticket-System initialisieren**
-    if (fs.existsSync(ticketSettingsPath)) { 
+    if (fs.existsSync(ticketSettingsPath)) {
         const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
 
         if (!ticketSettings[guildId]) {
@@ -619,7 +619,7 @@ client.on("guildCreate", async (guild) => {
                     { name: "Bug Reports" }
                 ]
             };
-            fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+            const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
             console.log(`✅ [Tickets] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(ticketSettings[guildId], null, 4));
         } else {
             console.log(`📂 [Tickets] Existiert bereits für "${guild.name}":`, JSON.stringify(ticketSettings[guildId], null, 4));
@@ -719,26 +719,26 @@ if (!fs.existsSync(moderationLogsPath)) {
     console.log(`📂 Datei erstellt: ${moderationLogsPath}`);
 }
 
-// **📌 Moderationsaktionen speichern**
 function logModerationAction(guildId, userId, action, moderator, reason) {
-    const moderationLogs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
+    const logs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
 
-    if (!moderationLogs[guildId]) {
-        moderationLogs[guildId] = [];
-    }
+    if (!logs[guildId]) logs[guildId] = [];
 
     const logEntry = {
-        userId: userId,
-        action: action,
-        moderator: moderator,
-        reason: reason,
+        userId,
+        action,
+        moderator,
+        reason,
         timestamp: new Date().toISOString()
     };
 
-    moderationLogs[guildId].push(logEntry);
-    fs.writeFileSync(moderationLogsPath, JSON.stringify(moderationLogs, null, 4));
-    console.log(`✅ [LOG] ${action} für User ${userId} durch ${moderator}`);
+    logs[guildId].push(logEntry);
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(logs, null, 4));
+
+    console.log(`✅ [LOG] ${action} für ${userId} von ${moderator}`);
 }
+
+module.exports = { logModerationAction };
 
 // **📌 Event: User wird gebannt**
 client.on(Events.GuildBanAdd, async (ban) => {
@@ -754,25 +754,20 @@ client.on(Events.GuildBanAdd, async (ban) => {
     );
 });
 
-client.on(Events.GuildMemberRemove, async (member) => {
-    if (!fs.existsSync(moderationLogsPath)) return;
 
-    const logs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
-    if (!logs[member.guild.id]) logs[member.guild.id] = [];
+// Event Clearen 
 
-    // Prüfen, ob der User wirklich gekickt wurde oder einfach nur gegangen ist
-    const recentAction = logs[member.guild.id].find(log =>
-        log.userId === member.user.id &&
-        log.action === "kick" &&
-        new Date(log.timestamp) > new Date(Date.now() - 5000)
+client.on(Events.MessageDeleteBulk, async (messages) => {
+    const channel = messages.first()?.channel;
+    if (!channel) return;
+
+    logModerationAction(
+        channel.guild.id,
+        "Massenlöschung",
+        "clear",
+        "Unbekannt",
+        `${messages.size} Nachrichten gelöscht in ${channel.name}`
     );
-
-    if (recentAction) {
-        console.log(`⚠️ [LOG] Doppelte Speicherung verhindert: Kick von ${member.user.tag} bereits in den Logs.`);
-        return;
-    }
-
-    console.log(`👢 ${member.user.tag} hat den Server verlassen (KEIN Kick erkannt).`);
 });
 
 // **📌 Slash-Command: Moderationslogs anzeigen**
@@ -791,7 +786,7 @@ client.on(Events.InteractionCreate, async interaction => {
             return interaction.reply({ content: "📜 Es gibt keine Moderationslogs für diesen Server.", ephemeral: true });
         }
 
-        const logEntries = guildLogs.slice(-5).reverse().map(log => 
+        const logEntries = guildLogs.slice(-5).reverse().map(log =>
             `📅 **${new Date(log.timestamp).toLocaleString()}**\n👤 **User:** <@${log.userId}>\n⚡ **Aktion:** ${log.action}\n👮 **Moderator:** ${log.moderator}\n📜 **Grund:** ${log.reason}`
         ).join("\n\n");
 
@@ -804,14 +799,73 @@ client.on(Events.InteractionCreate, async interaction => {
         interaction.reply({ embeds: [embed] });
     }
 });
-// 📌 Event für Bans loggen
+
+//BANNEN
 client.on(Events.GuildBanAdd, async (ban) => {
-    logModerationAction(ban.guild.id, ban.user.id, "ban", "Unbekannt (Manueller Ban)", "Kein Grund angegeben");
+    console.log(`⛔ ${ban.user.tag} wurde gebannt.`);
+
+    bannedUsers.add(ban.user.id); // Benutzer merken, um Kick-Fehllog zu verhindern
+
+    logModerationAction(
+        ban.guild.id,
+        ban.user.id,
+        "ban",
+        "Unbekannt (Manueller Ban)",
+        "Kein Grund angegeben"
+    );
+
+    sendLogMessage(ban.guild.id, {
+        userId: ban.user.id,
+        action: "ban",
+        moderator: "Unbekannt (Manueller Ban)",
+        reason: "Kein Grund angegeben",
+        timestamp: new Date().toISOString()
+    }, client);
 });
 
-// 📌 Event für Kicks loggen
 client.on(Events.GuildMemberRemove, async (member) => {
-    logModerationAction(member.guild.id, member.user.id, "kick", "Unbekannt (Manueller Kick)", "Kein Grund angegeben");
+    if (!fs.existsSync(moderationLogsPath)) return;
+
+    // Prüfen, ob der User bereits als gebannt markiert ist
+    if (bannedUsers.has(member.user.id)) {
+        console.log(`⚠️ [LOG] Ban erkannt, kein Kick-Log für ${member.user.tag}.`);
+        bannedUsers.delete(member.user.id); // Eintrag nach 1x Log entfernen
+        return;
+    }
+
+    console.log(`👢 ${member.user.tag} wurde gekickt.`);
+
+    logModerationAction(
+        member.guild.id,
+        member.user.id,
+        "kick",
+        "Unbekannt (Manueller Kick)",
+        "Kein Grund angegeben",
+        client
+    );
+
+    sendLogMessage(member.guild.id, {
+        userId: member.user.id,
+        action: "kick",
+        moderator: "Unbekannt (Manueller Kick)",
+        reason: "Kein Grund angegeben",
+        timestamp: new Date().toISOString()
+    }, client);
+});
+
+
+client.on(Events.MessageBulkDelete, async (messages) => {
+    const guildId = messages.first()?.guild?.id;
+    if (!guildId) return;
+
+    logModerationAction(
+        guildId,
+        "Mehrere Nachrichten",
+        "clear",
+        `<@${messages.first().author?.id || "Unbekannt"}>`, 
+        `${messages.size} Nachrichten gelöscht.`,
+        client
+    );
 });
 
 // 📌 Log-Funktion
@@ -850,16 +904,46 @@ function sendLogMessage(guildId, logEntry, client) {
     if (!logChannel) return;
 
     const embed = new EmbedBuilder()
-        .setColor(logEntry.action === "ban" ? "#ff0000" : "#ff9900")
+        .setColor(logEntry.action === "ban" ? "#ff0000" :
+            logEntry.action === "kick" ? "#ff9900" :
+                "#ffaa00") // Farbe für clear
         .setTitle(`⚡ Moderationsaktion: ${logEntry.action.toUpperCase()}`)
         .addFields(
-            { name: "👤 Benutzer", value: `<@${logEntry.userId}>`, inline: true },
-            { name: "👮 Moderator", value: logEntry.moderator, inline: true },
+            { name: "👤 Benutzer", value: logEntry.userId === "Mehrere Nachrichten" ? "----" : `<@${logEntry.userId}>`, inline: true },
+            { name: "👮 Moderator", value: logEntry.moderator !== "Unbekannt" ? `<@${logEntry.moderator}>` : "Unbekannt", inline: true },
             { name: "📜 Grund", value: logEntry.reason, inline: false }
         )
         .setTimestamp();
 
     logChannel.send({ embeds: [embed] }).catch(console.error);
 }
+
+//TEST 
+
+client.on(Events.MessageBulkDelete, async (messages) => {
+    const guildId = messages.first()?.guild?.id;
+    if (!guildId) return;
+
+    const deletedMessages = messages.map(msg => `📌 **${msg.author.tag}:** ${msg.content}`).join("\n") || "Keine Nachrichteninhalte verfügbar.";
+
+    // 📌 Speichere die Löschung im Moderationslog
+    logModerationAction(
+        guildId,
+        "Mehrere Nachrichten",
+        "clear",
+        "Unbekannt (Mod-Befehl oder Massenlöschung)",
+        `${messages.size} Nachrichten gelöscht.`
+    );
+
+    // 📩 Log-Nachricht senden
+    sendLogMessage(guildId, {
+        userId: "Mehrere Nachrichten",
+        action: "clear",
+        moderator: "Unbekannt (Mod-Befehl oder Massenlöschung)",
+        reason: `${messages.size} Nachrichten gelöscht.`,
+        timestamp: new Date().toISOString()
+    }, client);
+});
+
 // **Bot starten**
 client.login(process.env.TOKEN);

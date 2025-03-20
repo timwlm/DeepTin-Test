@@ -216,6 +216,244 @@
             "moderator": "Unbekannt (Manueller Kick)",
             "reason": "Kein Grund angegeben",
             "timestamp": "2025-03-20T11:41:35.387Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:44:58.503Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:44:58.557Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:47:41.356Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:47:41.395Z"
+        },
+        {
+            "userId": "1272909031685488643",
+            "action": "clear",
+            "moderator": "lennard.son",
+            "reason": "Deleted 5 messages",
+            "timestamp": "2025-03-20T11:48:05.168Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:48:25.933Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "ban",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:48:26.244Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "unban",
+            "moderator": "lennard.son",
+            "reason": "No reason provided",
+            "timestamp": "2025-03-20T11:48:48.054Z"
+        },
+        {
+            "userId": "1272909031685488643",
+            "action": "clear",
+            "moderator": "lennard.son",
+            "reason": "Deleted 5 messages",
+            "timestamp": "2025-03-20T11:55:46.997Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:56:02.359Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:56:02.362Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:56:02.421Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:56:23.572Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:56:23.575Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "ban",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T11:56:23.658Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "unban",
+            "moderator": "lennard.son",
+            "reason": "No reason provided",
+            "timestamp": "2025-03-20T11:57:07.535Z"
+        },
+        {
+            "userId": "1272909031685488643",
+            "action": "clear",
+            "moderator": "lennard.son",
+            "reason": "Deleted 10 messages",
+            "timestamp": "2025-03-20T11:58:59.769Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "Unbekannt (Mod-Befehl oder Massenlöschung)",
+            "reason": "9 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:00:37.871Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:00:56.261Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:00:56.264Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "ban",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:00:56.414Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "unban",
+            "moderator": "lennard.son",
+            "reason": "No reason provided",
+            "timestamp": "2025-03-20T12:01:13.650Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "Unbekannt (Mod-Befehl oder Massenlöschung)",
+            "reason": "3 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:04:22.909Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:04:41.685Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:04:41.687Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "ban",
+            "moderator": "lennard.son",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:04:41.802Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "unban",
+            "moderator": "lennard.son",
+            "reason": "No reason provided",
+            "timestamp": "2025-03-20T12:05:03.510Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "Unbekannt (Mod-Befehl oder Massenlöschung)",
+            "reason": "3 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:10:15.293Z"
+        },
+        {
+            "userId": "917507801482416179",
+            "action": "kick",
+            "moderator": "Unbekannt (Manueller Kick)",
+            "reason": "Kein Grund angegeben",
+            "timestamp": "2025-03-20T12:10:31.155Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "Unbekannt (Mod-Befehl oder Massenlöschung)",
+            "reason": "2 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:16:58.932Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "<@1272909031685488643>",
+            "reason": "4 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:30:09.626Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "Unbekannt (Mod-Befehl oder Massenlöschung)",
+            "reason": "4 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:30:09.640Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "<@1352191131944747028>",
+            "reason": "10 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:33:22.344Z"
+        },
+        {
+            "userId": "Mehrere Nachrichten",
+            "action": "clear",
+            "moderator": "Unbekannt (Mod-Befehl oder Massenlöschung)",
+            "reason": "10 Nachrichten gelöscht.",
+            "timestamp": "2025-03-20T12:33:22.353Z"
         }
     ]
 }
