@@ -21,6 +21,8 @@ jsonFiles.forEach(filePath => {
     }
 });
 
+console.log("📂 [JSON SETUP] JSON-Dateien wurden überprüft!");
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -558,7 +560,7 @@ client.on('', async (member) => {
 });
 
 client.on("guildCreate", async (guild) => {
-    console.log(`✅ [GUILD JOIN] Der Bot wurde zu ${guild.name} hinzugefügt!`);
+    console.log(`✅ [GUILD JOIN] Der Bot wurde zu "${guild.name}" hinzugefügt! (ID: ${guild.id})`);
 
     const guildId = guild.id;
 
@@ -569,14 +571,16 @@ client.on("guildCreate", async (guild) => {
         if (!autoroleSettings[guildId]) {
             autoroleSettings[guildId] = { roles: [] };
             fs.writeFileSync(autoroleSettingsPath, JSON.stringify(autoroleSettings, null, 4));
-            console.log(`✅ [AutoRole] Standardwerte für ${guild.name} gespeichert.`);
+            console.log(`✅ [AutoRole] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(autoroleSettings[guildId], null, 4));
+        } else {
+            console.log(`📂 [AutoRole] Existiert bereits für "${guild.name}":`, JSON.stringify(autoroleSettings[guildId], null, 4));
         }
     }
 
     // **2️⃣ Ticket-System initialisieren**
     if (fs.existsSync(settingsPath)) {
         const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-        
+
         if (!ticketSettings[guildId]) {
             ticketSettings[guildId] = {
                 ticketName: "Support Tickets",
@@ -590,18 +594,22 @@ client.on("guildCreate", async (guild) => {
                 ]
             };
             fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
-            console.log(`✅ [Tickets] Standardwerte für ${guild.name} gespeichert.`);
+            console.log(`✅ [Tickets] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(ticketSettings[guildId], null, 4));
+        } else {
+            console.log(`📂 [Tickets] Existiert bereits für "${guild.name}":`, JSON.stringify(ticketSettings[guildId], null, 4));
         }
     }
 
     // **3️⃣ JTC-System initialisieren**
     if (fs.existsSync(jtcSettingsPath)) {
         const jtcSettings = JSON.parse(fs.readFileSync(jtcSettingsPath, "utf8"));
-        
+
         if (!jtcSettings[guildId]) {
             jtcSettings[guildId] = { jtcChannelId: null, activeCalls: {} };
             fs.writeFileSync(jtcSettingsPath, JSON.stringify(jtcSettings, null, 4));
-            console.log(`✅ [JTC] Standardwerte für ${guild.name} gespeichert.`);
+            console.log(`✅ [JTC] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(jtcSettings[guildId], null, 4));
+        } else {
+            console.log(`📂 [JTC] Existiert bereits für "${guild.name}":`, JSON.stringify(jtcSettings[guildId], null, 4));
         }
     }
 
@@ -616,7 +624,9 @@ client.on("guildCreate", async (guild) => {
                 welcomeText: DEFAULT_WELCOME_TEXT
             };
             fs.writeFileSync(welcomeSettingsPath, JSON.stringify(welcomeSettings, null, 4));
-            console.log(`✅ [Welcome] Standardwerte für ${guild.name} gespeichert.`);
+            console.log(`✅ [Welcome] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(welcomeSettings[guildId], null, 4));
+        } else {
+            console.log(`📂 [Welcome] Existiert bereits für "${guild.name}":`, JSON.stringify(welcomeSettings[guildId], null, 4));
         }
     }
 
@@ -627,11 +637,13 @@ client.on("guildCreate", async (guild) => {
         if (!serverInfoSettings[guildId]) {
             serverInfoSettings[guildId] = { channelId: null };
             fs.writeFileSync(serverInfoPath, JSON.stringify(serverInfoSettings, null, 4));
-            console.log(`✅ [ServerInfo] Standardwerte für ${guild.name} gespeichert.`);
+            console.log(`✅ [ServerInfo] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(serverInfoSettings[guildId], null, 4));
+        } else {
+            console.log(`📂 [ServerInfo] Existiert bereits für "${guild.name}":`, JSON.stringify(serverInfoSettings[guildId], null, 4));
         }
     }
 
-    console.log(`🎉 Der Server ${guild.name} wurde vollständig initialisiert!`);
+    console.log(`🎉 Der Server "${guild.name}" wurde vollständig initialisiert!`);
 });
 client.on("guildDelete", async (guild) => {
     console.log(`❌ [GUILD LEAVE] Der Bot wurde von ${guild.name} entfernt.`);

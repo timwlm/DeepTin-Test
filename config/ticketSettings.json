@@ -38,23 +38,6 @@
             }
         ]
     },
-    "1296008107419369503": {
-        "ticketName": "Tim",
-        "categoryId": "1296008107419369504",
-        "supportRoleId": "1296008107419369503",
-        "color": "#0099ff",
-        "categories": [
-            {
-                "name": "hund"
-            },
-            {
-                "name": "katze"
-            },
-            {
-                "name": "maus"
-            }
-        ]
-    },
     "1348687677976870932": {
         "ticketName": "Erstelle ein Ticket",
         "categoryId": "1349409280687869962",
@@ -69,23 +52,6 @@
             },
             {
                 "name": "Allgemeine Fragen"
-            }
-        ]
-    },
-    "1336730822375510026": {
-        "ticketName": "Erstelle ein Ticket",
-        "categoryId": "1337692295994150914",
-        "supportRoleId": "1337416411366293624",
-        "color": "#0099ff",
-        "categories": [
-            {
-                "name": "Support"
-            },
-            {
-                "name": "Fragen"
-            },
-            {
-                "name": "Bewerbung"
             }
         ]
     }

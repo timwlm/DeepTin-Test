@@ -29,13 +29,13 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
     try {
-        console.log(`🚀 Registriere ${commands.length} Slashcommands...`);
-        const GUILD_IDS = JSON.parse(fs.readFileSync("./config/serverInfo.json", "utf8"));
-        for (const guildId of Object.keys(GUILD_IDS)) {
-            await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId), { body: commands });
-            console.log(`✅ Slashcommands für ${guildId} registriert!`);
-        }
+        console.log(`🚀 Registriere ${commands.length} globale Slashcommands...`);
+
+        // 🌍 **Globale Befehle registrieren**
+        await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+
+        console.log(`✅ Globale Slashcommands erfolgreich registriert!`);
     } catch (error) {
-        console.error("❌ Fehler:", error);
+        console.error("❌ Fehler beim Registrieren der globalen Slashcommands:", error);
     }
 })();
