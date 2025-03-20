@@ -39,3 +39,5 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
         console.error("❌ Fehler beim Registrieren der globalen Slashcommands:", error);
     }
 })();
+
+console.log(`🚀 Befehle: ${commands.map(cmd => cmd.name).join(", ")}`);

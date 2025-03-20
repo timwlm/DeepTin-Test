@@ -11,8 +11,9 @@ const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json'); // 🔥
 const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json'); // ✅ Korrektur
 const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json'); // Auto Rolle 
 const serverInfoPath = path.join(__dirname, 'config/serverInfo.json');
+const moderationLogsPath = path.join(__dirname, 'config/moderationLogs.json');
 
-const jsonFiles = [settingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath];
+const jsonFiles = [settingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath, moderationLogsPath];
 
 jsonFiles.forEach(filePath => {
     if (!fs.existsSync(filePath)) {
@@ -126,14 +127,22 @@ async function handleTicketInteraction(interaction) {
             ]
         });
 
+        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        if (!ticketSettings[guildId].activeTickets) ticketSettings[guildId].activeTickets = {};
+
+        // 🎟️ Speichere das Ticket in der JSON-Datei
+        ticketSettings[guildId].activeTickets[user.id] = channel.id;
+        fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+        console.log(`🎟️ Ticket für ${user.tag} in ${channel.id} gespeichert!`);
+
         const embed = new EmbedBuilder()
-        .setColor(settings[guildId].color || "#0099ff")
-        .setTitle(`🎫 Ticket: ${category.name}`)
-        .setDescription(`
+            .setColor(settings[guildId].color || "#0099ff")
+            .setTitle(`🎫 Ticket: ${category.name}`)
+            .setDescription(`
             Welcome to the ticket for **${category.name}**! A team member will be in touch soon.
         `)
-        .setImage(embedGif) // ✅ Nutzt `embedGif` für geöffnete Tickets
-        .setTimestamp();
+            .setImage(embedGif) // ✅ Nutzt `embedGif` für geöffnete Tickets
+            .setTimestamp();
 
         await channel.send({ embeds: [embed] });
 
@@ -152,15 +161,15 @@ async function handleTicketInteraction(interaction) {
 
         // ✅ DM mit `embedGif` senden
         const dmEmbed = new EmbedBuilder()
-        .setColor("#00ff00")
-        .setTitle("✅ Your Ticket has been created!")
-        .setDescription(`
+            .setColor("#00ff00")
+            .setTitle("✅ Your Ticket has been created!")
+            .setDescription(`
             Your **"${category.name}"** ticket has been successfully opened.
     
             👉 **Click here:** ${channel}
         `)
-        .setImage(embedGif)
-        .setTimestamp();
+            .setImage(embedGif)
+            .setTimestamp();
 
         try {
             await user.send({ embeds: [dmEmbed] });
@@ -183,6 +192,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.customId === "ticket_options") {
         const [action, channelId] = interaction.values[0].split("_");
         const channel = interaction.guild.channels.cache.get(channelId);
+        const guildId = interaction.guild.id;
 
         if (!channel) {
             return interaction.reply({ content: "❌ Ticket not found or already deleted.", ephemeral: true });
@@ -196,6 +206,9 @@ client.on(Events.InteractionCreate, async interaction => {
         if (!user) {
             return interaction.reply({ content: "❌ The ticket creator could not be found.", ephemeral: true });
         }
+
+        // 📂 Lade die Ticket-Datenbank
+        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
 
         if (action === "close") {
             await channel.permissionOverwrites.edit(user.id, { ViewChannel: false });
@@ -221,6 +234,13 @@ client.on(Events.InteractionCreate, async interaction => {
                 console.log(`⚠️ Could not send DM to ${user.user.tag}.`);
             }
 
+            // 🚪 Ticket aus der Datenbank entfernen
+            if (ticketSettings[guildId]?.activeTickets?.[user.id]) {
+                delete ticketSettings[guildId].activeTickets[user.id];
+                fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+                console.log(`🚪 Ticket von ${user.tag} entfernt.`);
+            }
+
             return interaction.reply({ content: "✅ Ticket got closed.", ephemeral: true });
         }
 
@@ -238,6 +258,13 @@ client.on(Events.InteractionCreate, async interaction => {
                 await user.send({ embeds: [dmEmbed] });
             } catch {
                 console.log(`⚠️ Could not send DM to ${user.user.tag}.`);
+            }
+
+            // 🚮 Ticket aus der Datenbank entfernen
+            if (ticketSettings[guildId]?.activeTickets?.[user.id]) {
+                delete ticketSettings[guildId].activeTickets[user.id];
+                fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+                console.log(`🚮 Ticket von ${user.tag} entfernt.`);
             }
 
             setTimeout(async () => {
@@ -267,7 +294,6 @@ client.on(Events.InteractionCreate, async interaction => {
         }
     }
 });
-// **📌 Funktion für das JTC-System**
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isButton()) return;
 
@@ -324,10 +350,10 @@ client.on(Events.InteractionCreate, async interaction => {
 
 async function sendJTCControlMessage(voiceChannel) {
     try {
-        console.log(`📩 Search for voice text channel for ${voiceChannel.name}...`);
+        console.log(`📩 Searching for voice text channel for ${voiceChannel.name}...`);
 
         // **Versuche, den verknüpften Sprach-Textkanal zu finden**
-        await voiceChannel.fetch(); // Wichtig, um aktuelle Channel-Daten zu bekommen
+        await voiceChannel.fetch();
         const textChannel = voiceChannel.guild.channels.cache.get(voiceChannel.id);
 
         if (!textChannel) {
@@ -376,7 +402,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     const settings = JSON.parse(fs.readFileSync(jtcSettingsPath, "utf8"));
     const guildId = newState.guild.id;
 
-    // 🛠️ Standardwerte setzen, falls der Server nicht existiert
     if (!settings[guildId]) {
         settings[guildId] = { jtcChannelId: null, activeCalls: {} };
         fs.writeFileSync(jtcSettingsPath, JSON.stringify(settings, null, 4));
@@ -387,7 +412,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
     // ✅ **User betritt JTC-Channel**
     if (newState.channelId === jtcChannelId) {
-        console.log(`✅ User enters JTC channel, creating a new call`);
+        console.log(`✅ [JTC] ${newState.member.user.tag} betritt den JTC-Channel!`);
 
         try {
             // 🎙️ Erstelle einen neuen Voice-Channel
@@ -402,32 +427,30 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
                 ]
             });
 
-            console.log(`✅ New voice call created: ${voiceChannel.name}`);
-
-            // **JTC-Calls in JSON speichern**
-            if (!settings[guildId].activeCalls) settings[guildId].activeCalls = {};
+            // 🗣️ Speichere den erstellten Sprachkanal
             settings[guildId].activeCalls[newState.member.id] = voiceChannel.id;
             fs.writeFileSync(jtcSettingsPath, JSON.stringify(settings, null, 4));
+            console.log(`🔊 Neuer JTC-Call für ${newState.member.user.tag} gespeichert!`);
 
             // ✅ **User in den neuen Call moven**
             await newState.member.voice.setChannel(voiceChannel);
-            console.log(`✅ User was moved to new call`);
+            console.log(`✅ [JTC] ${newState.member.user.tag} wurde in den neuen Call verschoben.`);
 
             // ✅ **Steuerungsnachricht in den Call senden**
             await sendJTCControlMessage(voiceChannel);
         } catch (error) {
-            console.error("❌ Error creating the JTC call:", error);
+            console.error("❌ [JTC] Fehler beim Erstellen des JTC-Calls:", error);
         }
     }
 
     // ✅ **JTC-Call löschen, wenn er leer ist**
     if (oldState.channel && oldState.channel.members.size === 0) {
         if (!settings[guildId]?.activeCalls || !Object.values(settings[guildId].activeCalls).includes(oldState.channel.id)) {
-            console.log(`⚠️ Call ${oldState.channel.name} is NOT a JTC call. It will NOT be deleted.`);
+            console.log(`⚠️ [JTC] Call ${oldState.channel.name} ist kein JTC-Call. Er wird NICHT gelöscht.`);
             return;
         }
 
-        console.log(`🗑️ Deleting JTC-Call: ${oldState.channel.name}`);
+        console.log(`🗑️ [JTC] Lösche leeren JTC-Call: ${oldState.channel.name}`);
 
         // **JTC-Call aus der Liste entfernen**
         const callOwner = Object.keys(settings[guildId].activeCalls).find(userId => settings[guildId].activeCalls[userId] === oldState.channel.id);
@@ -438,13 +461,12 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
         try {
             await oldState.channel.delete();
-            console.log(`✅ JTC-Call deleted.`);
+            console.log(`✅ [JTC] JTC-Call gelöscht.`);
         } catch (err) {
-            console.log(`⚠️ Error deleting JTC call: ${err.message}`);
+            console.log(`⚠️ [JTC] Fehler beim Löschen des JTC-Calls: ${err.message}`);
         }
     }
 });
-
 // **🌟 Standardwerte für GIF und Text**
 const DEFAULT_GIF = "https://cdn.discordapp.com/attachments/1348390411349131325/1351516940664963153/welcome.gif?ex=67daa9bc&is=67d9583c&hm=001595cf47e135ec482a7e40e29b189e03c2d8b8f37536b83283961295570398&";
 const DEFAULT_WELCOME_TEXT = `🦈Hey {member}, we're glad you've landed on our server. We hope you have fun!🐳! 🎊\n\n📜 **Rules:** Please read the rules and follow them.\n✅ **Questions:** If you have any questions, feel free to contact the team🌊\n\n\n🦈Hey {member}, schön dass du auf unserem Server gelandet bist, wir hoffen du hast viel Spaß🐳! 🎊\n\n📜 **Regeln:** Lese dir bitte die Regeln durch und beachte sie.\n✅ **Fragen:** Falls du Fragen hast wende dich gerne an das Team🌊!`;
@@ -487,7 +509,7 @@ client.on('guildMemberAdd', async member => {
     const embed = new EmbedBuilder()
         .setColor("#0099ff")
         .setTitle(
-            "We're glad you've landed on our Server!\n" 
+            "We're glad you've landed on our Server!\n"
         )
         .setDescription(welcomeText)
         .setImage(welcomeGif)
@@ -567,7 +589,7 @@ client.on("guildCreate", async (guild) => {
     // **1️⃣ Auto-Role System initialisieren**
     if (fs.existsSync(autoroleSettingsPath)) {
         const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, "utf8"));
-        
+
         if (!autoroleSettings[guildId]) {
             autoroleSettings[guildId] = { roles: [] };
             fs.writeFileSync(autoroleSettingsPath, JSON.stringify(autoroleSettings, null, 4));
@@ -687,5 +709,148 @@ client.on("guildDelete", async (guild) => {
 
     console.log(`🚮 Der Server ${guild.name} wurde aus allen Datenbanken entfernt.`);
 });
+
+// **📂 Neue ModerationLogs JSON-Datei erstellen, falls nicht vorhanden**
+if (!fs.existsSync(moderationLogsPath)) {
+    fs.writeFileSync(moderationLogsPath, JSON.stringify({}, null, 4));
+    console.log(`📂 Datei erstellt: ${moderationLogsPath}`);
+}
+
+// **📌 Moderationsaktionen speichern**
+function logModerationAction(guildId, userId, action, moderator, reason) {
+    const moderationLogs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
+
+    if (!moderationLogs[guildId]) {
+        moderationLogs[guildId] = [];
+    }
+
+    const logEntry = {
+        userId: userId,
+        action: action,
+        moderator: moderator,
+        reason: reason,
+        timestamp: new Date().toISOString()
+    };
+
+    moderationLogs[guildId].push(logEntry);
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(moderationLogs, null, 4));
+    console.log(`✅ [LOG] ${action} für User ${userId} durch ${moderator}`);
+}
+
+// **📌 Event: User wird gebannt**
+client.on(Events.GuildBanAdd, async (ban) => {
+    console.log(`⛔ ${ban.user.tag} wurde gebannt.`);
+
+    // 📂 Log in der JSON-Datei speichern
+    logModerationAction(
+        ban.guild.id,
+        ban.user.id,
+        "ban",
+        "Unbekannt (Manueller Ban)",
+        "Kein Grund angegeben"
+    );
+});
+
+// **📌 Event: User wird gekickt**
+client.on(Events.GuildMemberRemove, async (member) => {
+    if (member.kickable) {
+        console.log(`👢 ${member.user.tag} wurde gekickt.`);
+
+        logModerationAction(
+            member.guild.id,
+            member.user.id,
+            "kick",
+            "Unbekannt (Manueller Kick)",
+            "Kein Grund angegeben"
+        );
+    }
+});
+
+// **📌 Slash-Command zum Bannen eines Users**
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === "ban") {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Benutzer zu bannen.", ephemeral: true });
+        }
+
+        const user = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
+
+        if (!user) return interaction.reply({ content: "❌ Benutzer nicht gefunden.", ephemeral: true });
+
+        const member = interaction.guild.members.cache.get(user.id);
+        if (!member) return interaction.reply({ content: "❌ Der Benutzer ist nicht auf diesem Server.", ephemeral: true });
+
+        try {
+            await member.ban({ reason: reason });
+            logModerationAction(interaction.guild.id, user.id, "ban", interaction.user.tag, reason);
+            interaction.reply({ content: `✅ ${user.tag} wurde gebannt.\n📜 Grund: ${reason}` });
+        } catch (error) {
+            console.error("❌ Fehler beim Bannen:", error);
+            interaction.reply({ content: "❌ Fehler beim Bannen des Benutzers.", ephemeral: true });
+        }
+    }
+});
+
+// **📌 Slash-Command zum Kicken eines Users**
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === "kick") {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Benutzer zu kicken.", ephemeral: true });
+        }
+
+        const user = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
+
+        if (!user) return interaction.reply({ content: "❌ Benutzer nicht gefunden.", ephemeral: true });
+
+        const member = interaction.guild.members.cache.get(user.id);
+        if (!member) return interaction.reply({ content: "❌ Der Benutzer ist nicht auf diesem Server.", ephemeral: true });
+
+        try {
+            await member.kick(reason);
+            logModerationAction(interaction.guild.id, user.id, "kick", interaction.user.tag, reason);
+            interaction.reply({ content: `✅ ${user.tag} wurde gekickt.\n📜 Grund: ${reason}` });
+        } catch (error) {
+            console.error("❌ Fehler beim Kicken:", error);
+            interaction.reply({ content: "❌ Fehler beim Kicken des Benutzers.", ephemeral: true });
+        }
+    }
+});
+
+// **📌 Slash-Command: Moderationslogs anzeigen**
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === "modlogs") {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Moderationslogs zu sehen.", ephemeral: true });
+        }
+
+        const moderationLogs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
+        const guildLogs = moderationLogs[interaction.guild.id] || [];
+
+        if (guildLogs.length === 0) {
+            return interaction.reply({ content: "📜 Es gibt keine Moderationslogs für diesen Server.", ephemeral: true });
+        }
+
+        const logEntries = guildLogs.slice(-5).reverse().map(log => 
+            `📅 **${new Date(log.timestamp).toLocaleString()}**\n👤 **User:** <@${log.userId}>\n⚡ **Aktion:** ${log.action}\n👮 **Moderator:** ${log.moderator}\n📜 **Grund:** ${log.reason}`
+        ).join("\n\n");
+
+        const embed = new EmbedBuilder()
+            .setColor("#ffcc00")
+            .setTitle("📜 Letzte Moderationslogs")
+            .setDescription(logEntries)
+            .setTimestamp();
+
+        interaction.reply({ embeds: [embed] });
+    }
+});
+
 // **Bot starten**
 client.login(process.env.TOKEN);
