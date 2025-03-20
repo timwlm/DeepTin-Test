@@ -10,6 +10,16 @@ const settingsPath = path.join(__dirname, 'config/ticketSettings.json');
 const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json'); // 🔥 JTC-Config
 const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json'); // ✅ Korrektur
 const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json'); // Auto Rolle 
+const serverInfoPath = path.join(__dirname, 'config/serverInfo.json');
+
+const jsonFiles = [settingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath];
+
+jsonFiles.forEach(filePath => {
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify({}, null, 4));
+        console.log(`📂 Datei erstellt: ${filePath}`);
+    }
+});
 
 const client = new Client({
     intents: [
@@ -359,17 +369,26 @@ async function sendJTCControlMessage(voiceChannel) {
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     if (!fs.existsSync(jtcSettingsPath)) return;
+
+    // 🛠️ JSON-Datei einlesen
     const settings = JSON.parse(fs.readFileSync(jtcSettingsPath, "utf8"));
     const guildId = newState.guild.id;
-    const jtcChannelId = settings[guildId]?.jtcChannelId;
 
+    // 🛠️ Standardwerte setzen, falls der Server nicht existiert
+    if (!settings[guildId]) {
+        settings[guildId] = { jtcChannelId: null, activeCalls: {} };
+        fs.writeFileSync(jtcSettingsPath, JSON.stringify(settings, null, 4));
+    }
+
+    const jtcChannelId = settings[guildId]?.jtcChannelId;
     if (!jtcChannelId) return; // Falls kein JTC-Channel gespeichert ist, nichts tun
 
     // ✅ **User betritt JTC-Channel**
     if (newState.channelId === jtcChannelId) {
-        console.log(`✅ User enters JTC channel, creates new call`);
+        console.log(`✅ User enters JTC channel, creating a new call`);
 
         try {
+            // 🎙️ Erstelle einen neuen Voice-Channel
             const voiceChannel = await newState.guild.channels.create({
                 name: `🔊 ${newState.member.user.username}`,
                 type: ChannelType.GuildVoice,
@@ -504,7 +523,7 @@ client.once('ready', async () => {
     }
 });
 
-client.on('guildMemberAdd', async (member) => {
+client.on('', async (member) => {
     console.log(`✅ [JOIN EVENT] ${member.user.tag} ist dem Server beigetreten.`);
 
     if (!fs.existsSync(autoroleSettingsPath)) {
@@ -512,15 +531,16 @@ client.on('guildMemberAdd', async (member) => {
         return;
     }
 
-    const settings = JSON.parse(fs.readFileSync(autoroleSettingsPath, 'utf8'));
+    const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, 'utf8'));
     const guildId = member.guild.id;
+    const guildSettings = autoroleSettings[guildId] || autoroleSettings["default"];
 
-    if (!settings[guildId] || !settings[guildId].roles) {
+    if (!guildSettings || !guildSettings.roles || guildSettings.roles.length === 0) {
         console.log(`⚠️ [ERROR] Keine Auto-Rollen für Server ${member.guild.name} eingerichtet.`);
         return;
     }
 
-    const rolesToAssign = settings[guildId].roles
+    const rolesToAssign = guildSettings.roles
         .map(roleId => member.guild.roles.cache.get(roleId))
         .filter(role => role && role.editable); // 🔥 Stellt sicher, dass der Bot die Rolle auch vergeben kann!
 
@@ -537,5 +557,123 @@ client.on('guildMemberAdd', async (member) => {
     }
 });
 
+client.on("guildCreate", async (guild) => {
+    console.log(`✅ [GUILD JOIN] Der Bot wurde zu ${guild.name} hinzugefügt!`);
+
+    const guildId = guild.id;
+
+    // **1️⃣ Auto-Role System initialisieren**
+    if (fs.existsSync(autoroleSettingsPath)) {
+        const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, "utf8"));
+        
+        if (!autoroleSettings[guildId]) {
+            autoroleSettings[guildId] = { roles: [] };
+            fs.writeFileSync(autoroleSettingsPath, JSON.stringify(autoroleSettings, null, 4));
+            console.log(`✅ [AutoRole] Standardwerte für ${guild.name} gespeichert.`);
+        }
+    }
+
+    // **2️⃣ Ticket-System initialisieren**
+    if (fs.existsSync(settingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        
+        if (!ticketSettings[guildId]) {
+            ticketSettings[guildId] = {
+                ticketName: "Support Tickets",
+                categoryId: null,
+                supportRoleId: null,
+                color: "#0099ff",
+                categories: [
+                    { name: "Allgemeine Anfragen" },
+                    { name: "Technischer Support" },
+                    { name: "Bug Reports" }
+                ]
+            };
+            fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+            console.log(`✅ [Tickets] Standardwerte für ${guild.name} gespeichert.`);
+        }
+    }
+
+    // **3️⃣ JTC-System initialisieren**
+    if (fs.existsSync(jtcSettingsPath)) {
+        const jtcSettings = JSON.parse(fs.readFileSync(jtcSettingsPath, "utf8"));
+        
+        if (!jtcSettings[guildId]) {
+            jtcSettings[guildId] = { jtcChannelId: null, activeCalls: {} };
+            fs.writeFileSync(jtcSettingsPath, JSON.stringify(jtcSettings, null, 4));
+            console.log(`✅ [JTC] Standardwerte für ${guild.name} gespeichert.`);
+        }
+    }
+
+    // **4️⃣ Willkommen-System initialisieren**
+    if (fs.existsSync(welcomeSettingsPath)) {
+        const welcomeSettings = JSON.parse(fs.readFileSync(welcomeSettingsPath, "utf8"));
+
+        if (!welcomeSettings[guildId]) {
+            welcomeSettings[guildId] = {
+                welcomeChannelId: null,
+                welcomeGif: DEFAULT_GIF,
+                welcomeText: DEFAULT_WELCOME_TEXT
+            };
+            fs.writeFileSync(welcomeSettingsPath, JSON.stringify(welcomeSettings, null, 4));
+            console.log(`✅ [Welcome] Standardwerte für ${guild.name} gespeichert.`);
+        }
+    }
+
+    // **5️⃣ Server-Info initialisieren**
+    if (fs.existsSync(serverInfoPath)) {
+        const serverInfoSettings = JSON.parse(fs.readFileSync(serverInfoPath, "utf8"));
+
+        if (!serverInfoSettings[guildId]) {
+            serverInfoSettings[guildId] = { channelId: null };
+            fs.writeFileSync(serverInfoPath, JSON.stringify(serverInfoSettings, null, 4));
+            console.log(`✅ [ServerInfo] Standardwerte für ${guild.name} gespeichert.`);
+        }
+    }
+
+    console.log(`🎉 Der Server ${guild.name} wurde vollständig initialisiert!`);
+});
+client.on("guildDelete", async (guild) => {
+    console.log(`❌ [GUILD LEAVE] Der Bot wurde von ${guild.name} entfernt.`);
+
+    const guildId = guild.id;
+
+    // **1️⃣ Entferne aus Auto-Role System**
+    if (fs.existsSync(autoroleSettingsPath)) {
+        const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, "utf8"));
+        if (autoroleSettings[guildId]) delete autoroleSettings[guildId];
+        fs.writeFileSync(autoroleSettingsPath, JSON.stringify(autoroleSettings, null, 4));
+    }
+
+    // **2️⃣ Entferne aus Ticket-System**
+    if (fs.existsSync(settingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        if (ticketSettings[guildId]) delete ticketSettings[guildId];
+        fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+    }
+
+    // **3️⃣ Entferne aus JTC-System**
+    if (fs.existsSync(jtcSettingsPath)) {
+        const jtcSettings = JSON.parse(fs.readFileSync(jtcSettingsPath, "utf8"));
+        if (jtcSettings[guildId]) delete jtcSettings[guildId];
+        fs.writeFileSync(jtcSettingsPath, JSON.stringify(jtcSettings, null, 4));
+    }
+
+    // **4️⃣ Entferne aus Welcome-System**
+    if (fs.existsSync(welcomeSettingsPath)) {
+        const welcomeSettings = JSON.parse(fs.readFileSync(welcomeSettingsPath, "utf8"));
+        if (welcomeSettings[guildId]) delete welcomeSettings[guildId];
+        fs.writeFileSync(welcomeSettingsPath, JSON.stringify(welcomeSettings, null, 4));
+    }
+
+    // **5️⃣ Entferne aus Server-Info**
+    if (fs.existsSync(serverInfoPath)) {
+        const serverInfoSettings = JSON.parse(fs.readFileSync(serverInfoPath, "utf8"));
+        if (serverInfoSettings[guildId]) delete serverInfoSettings[guildId];
+        fs.writeFileSync(serverInfoPath, JSON.stringify(serverInfoSettings, null, 4));
+    }
+
+    console.log(`🚮 Der Server ${guild.name} wurde aus allen Datenbanken entfernt.`);
+});
 // **Bot starten**
 client.login(process.env.TOKEN);
