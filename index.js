@@ -6,14 +6,15 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-const settingsPath = path.join(__dirname, 'config/ticketSettings.json');
+const ticketSettingsPath = path.join(__dirname, 'config/ticketSettings.json');
 const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json'); // 🔥 JTC-Config
 const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json'); // ✅ Korrektur
 const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json'); // Auto Rolle 
 const serverInfoPath = path.join(__dirname, 'config/serverInfo.json');
 const moderationLogsPath = path.join(__dirname, 'config/moderationLogs.json');
+const logSettingsPath = path.join(__dirname, 'config/logSettings.json'); // 🔥 Log-Settings für /logs
 
-const jsonFiles = [settingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath, moderationLogsPath];
+const jsonFiles = [ticketSettingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath, moderationLogsPath, logSettingsPath];
 
 jsonFiles.forEach(filePath => {
     if (!fs.existsSync(filePath)) {
@@ -70,22 +71,25 @@ client.once('ready', () => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-    if (interaction.isChatInputCommand()) {
-        const command = client.commands.get(interaction.commandName);
-        if (!command) {
-            console.error(`❌ Command ${interaction.commandName} not found!`);
-            return;
-        }
-        try {
-            await command.execute(interaction);
-        } catch (error) {
-            console.error(`❌ Error in /${interaction.commandName}:`, error);
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = client.commands.get(interaction.commandName);
+    if (!command) {
+        console.error(`❌ Command ${interaction.commandName} not found!`);
+        return;
+    }
+
+    try {
+        await command.execute(interaction);
+    } catch (error) {
+        console.error(`❌ Error in /${interaction.commandName}:`, error);
+
+        // ✅ Sicherstellen, dass nicht zweimal geantwortet wird
+        if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({ content: '❌ Error executing the command!', ephemeral: true });
+        } else if (interaction.deferred) {
+            await interaction.editReply({ content: '❌ Error executing the command!' });
         }
-    } else if (interaction.isButton() && interaction.customId.startsWith("ticket_")) {
-        await handleTicketInteraction(interaction);
-    } else if (interaction.isButton() && interaction.customId.startsWith("jtc_")) {
-        await handleJTCInteraction(interaction);
     }
 });
 
@@ -600,8 +604,8 @@ client.on("guildCreate", async (guild) => {
     }
 
     // **2️⃣ Ticket-System initialisieren**
-    if (fs.existsSync(settingsPath)) {
-        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    if (fs.existsSync(ticketSettingsPath)) { 
+        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
 
         if (!ticketSettings[guildId]) {
             ticketSettings[guildId] = {
@@ -671,7 +675,6 @@ client.on("guildDelete", async (guild) => {
     console.log(`❌ [GUILD LEAVE] Der Bot wurde von ${guild.name} entfernt.`);
 
     const guildId = guild.id;
-
     // **1️⃣ Entferne aus Auto-Role System**
     if (fs.existsSync(autoroleSettingsPath)) {
         const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, "utf8"));
@@ -680,10 +683,10 @@ client.on("guildDelete", async (guild) => {
     }
 
     // **2️⃣ Entferne aus Ticket-System**
-    if (fs.existsSync(settingsPath)) {
-        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    if (fs.existsSync(ticketSettingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
         if (ticketSettings[guildId]) delete ticketSettings[guildId];
-        fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+        fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
     }
 
     // **3️⃣ Entferne aus JTC-System**
@@ -751,75 +754,25 @@ client.on(Events.GuildBanAdd, async (ban) => {
     );
 });
 
-// **📌 Event: User wird gekickt**
 client.on(Events.GuildMemberRemove, async (member) => {
-    if (member.kickable) {
-        console.log(`👢 ${member.user.tag} wurde gekickt.`);
+    if (!fs.existsSync(moderationLogsPath)) return;
 
-        logModerationAction(
-            member.guild.id,
-            member.user.id,
-            "kick",
-            "Unbekannt (Manueller Kick)",
-            "Kein Grund angegeben"
-        );
+    const logs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
+    if (!logs[member.guild.id]) logs[member.guild.id] = [];
+
+    // Prüfen, ob der User wirklich gekickt wurde oder einfach nur gegangen ist
+    const recentAction = logs[member.guild.id].find(log =>
+        log.userId === member.user.id &&
+        log.action === "kick" &&
+        new Date(log.timestamp) > new Date(Date.now() - 5000)
+    );
+
+    if (recentAction) {
+        console.log(`⚠️ [LOG] Doppelte Speicherung verhindert: Kick von ${member.user.tag} bereits in den Logs.`);
+        return;
     }
-});
 
-// **📌 Slash-Command zum Bannen eines Users**
-client.on(Events.InteractionCreate, async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    if (interaction.commandName === "ban") {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Benutzer zu bannen.", ephemeral: true });
-        }
-
-        const user = interaction.options.getUser("user");
-        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
-
-        if (!user) return interaction.reply({ content: "❌ Benutzer nicht gefunden.", ephemeral: true });
-
-        const member = interaction.guild.members.cache.get(user.id);
-        if (!member) return interaction.reply({ content: "❌ Der Benutzer ist nicht auf diesem Server.", ephemeral: true });
-
-        try {
-            await member.ban({ reason: reason });
-            logModerationAction(interaction.guild.id, user.id, "ban", interaction.user.tag, reason);
-            interaction.reply({ content: `✅ ${user.tag} wurde gebannt.\n📜 Grund: ${reason}` });
-        } catch (error) {
-            console.error("❌ Fehler beim Bannen:", error);
-            interaction.reply({ content: "❌ Fehler beim Bannen des Benutzers.", ephemeral: true });
-        }
-    }
-});
-
-// **📌 Slash-Command zum Kicken eines Users**
-client.on(Events.InteractionCreate, async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    if (interaction.commandName === "kick") {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Benutzer zu kicken.", ephemeral: true });
-        }
-
-        const user = interaction.options.getUser("user");
-        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
-
-        if (!user) return interaction.reply({ content: "❌ Benutzer nicht gefunden.", ephemeral: true });
-
-        const member = interaction.guild.members.cache.get(user.id);
-        if (!member) return interaction.reply({ content: "❌ Der Benutzer ist nicht auf diesem Server.", ephemeral: true });
-
-        try {
-            await member.kick(reason);
-            logModerationAction(interaction.guild.id, user.id, "kick", interaction.user.tag, reason);
-            interaction.reply({ content: `✅ ${user.tag} wurde gekickt.\n📜 Grund: ${reason}` });
-        } catch (error) {
-            console.error("❌ Fehler beim Kicken:", error);
-            interaction.reply({ content: "❌ Fehler beim Kicken des Benutzers.", ephemeral: true });
-        }
-    }
+    console.log(`👢 ${member.user.tag} hat den Server verlassen (KEIN Kick erkannt).`);
 });
 
 // **📌 Slash-Command: Moderationslogs anzeigen**
@@ -851,6 +804,62 @@ client.on(Events.InteractionCreate, async interaction => {
         interaction.reply({ embeds: [embed] });
     }
 });
+// 📌 Event für Bans loggen
+client.on(Events.GuildBanAdd, async (ban) => {
+    logModerationAction(ban.guild.id, ban.user.id, "ban", "Unbekannt (Manueller Ban)", "Kein Grund angegeben");
+});
 
+// 📌 Event für Kicks loggen
+client.on(Events.GuildMemberRemove, async (member) => {
+    logModerationAction(member.guild.id, member.user.id, "kick", "Unbekannt (Manueller Kick)", "Kein Grund angegeben");
+});
+
+// 📌 Log-Funktion
+function logModerationAction(guildId, userId, action, moderator, reason) {
+    if (!fs.existsSync(moderationLogsPath)) return;
+
+    const logs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
+    if (!logs[guildId]) logs[guildId] = [];
+
+    const logEntry = {
+        userId,
+        action,
+        moderator,
+        reason,
+        timestamp: new Date().toISOString()
+    };
+
+    logs[guildId].push(logEntry);
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(logs, null, 4));
+
+    console.log(`✅ [LOG] ${action} für ${userId} von ${moderator}`);
+
+    sendLogMessage(guildId, logEntry, client);
+}
+
+// 📌 Funktion zum Senden der Logs ins Log-Channel
+function sendLogMessage(guildId, logEntry, client) {
+    if (!fs.existsSync(logSettingsPath)) return; // ❗ KORREKTUR: `logSettingsPath` statt `settingsPath`
+
+    const settings = JSON.parse(fs.readFileSync(logSettingsPath, 'utf8'));
+    if (!settings[guildId] || !settings[guildId].logChannel) return;
+
+    const logChannelId = settings[guildId].logChannel;
+    const logChannel = client.channels.cache.get(logChannelId);
+
+    if (!logChannel) return;
+
+    const embed = new EmbedBuilder()
+        .setColor(logEntry.action === "ban" ? "#ff0000" : "#ff9900")
+        .setTitle(`⚡ Moderationsaktion: ${logEntry.action.toUpperCase()}`)
+        .addFields(
+            { name: "👤 Benutzer", value: `<@${logEntry.userId}>`, inline: true },
+            { name: "👮 Moderator", value: logEntry.moderator, inline: true },
+            { name: "📜 Grund", value: logEntry.reason, inline: false }
+        )
+        .setTimestamp();
+
+    logChannel.send({ embeds: [embed] }).catch(console.error);
+}
 // **Bot starten**
 client.login(process.env.TOKEN);

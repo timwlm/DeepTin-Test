@@ -1,87 +1,77 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { SlashCommandBuilder, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('kick')
-        .setDescription('Kick a user from the server.')
-        .addUserOption(option => 
-            option.setName('user')
-                .setDescription('The user you wanna kick.')
-                .setRequired(true))
-        .addStringOption(option =>
-            option.setName('reason')
-                .setDescription('Reason for the kick.')
-                .setRequired(false)),
+        .setDescription('Kickt einen User vom Server.')
+        .addUserOption(option => option.setName('user').setDescription('Der User, der gekickt werden soll.').setRequired(true))
+        .addStringOption(option => option.setName('reason').setDescription('Der Grund für den Kick.').setRequired(false)),
 
     async execute(interaction) {
-        const targetUser = interaction.options.getUser('user');
-        const reason = interaction.options.getString('reason') || "No reason mentioned!";
-        const member = await interaction.guild.members.fetch(targetUser.id);
-        const moderator = interaction.user; // Der ausführende Nutzer
-        const kickDate = new Date().toLocaleString(); // Datum des Kicks
+        await interaction.deferReply();
 
-        // 📌 Überprüfen, ob der ausführende Nutzer Kickrechte hat
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-            return await interaction.reply({ content: "❌ You do not have permission to kick users!", ephemeral: true });
+            return await interaction.editReply({ content: "❌ Du hast keine Berechtigung, Benutzer zu kicken." });
         }
 
-        // 📌 Überprüfen, ob der Bot Kickrechte hat
-        if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-            return await interaction.reply({ content: "❌ I don't have permission to kick users!", ephemeral: true });
-        }
+        const user = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
 
-        // 📌 Überprüfen, ob der Nutzer kickbar ist (nicht Admin oder höher als der Bot)
-        if (!member.kickable) {
-            return await interaction.reply({ content: "❌ I can't kick this user! He has a higher role than me.", ephemeral: true });
-        }
+        if (!user) return await interaction.editReply({ content: "❌ Benutzer nicht gefunden." });
 
-        // 📌 Erstelle den DM-Kick-Embed
-        const dmEmbed = new EmbedBuilder()
-            .setColor(0xffa500)
-            .setTitle("🚪 You werw kicked!")
-            .setDescription(`You were kicked by the admin **${interaction.guild.name}** .`)
-            .addFields(
-                { name: "📅 Date", value: kickDate, inline: true },
-                { name: "👤 Kicked by", value: `${moderator.tag}`, inline: true },
-                { name: "📌 Reason", value: reason, inline: false }
-            )
-            .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
-            
-            // Image bearbeiten
-            .setFooter({ text: "Contact a moderator if you have any questions." });
+        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+        if (!member) return await interaction.editReply({ content: "❌ Der Benutzer ist nicht auf diesem Server." });
 
         try {
-            // 📌 Sende eine DM an den gekickten Nutzer
-            await targetUser.send({ embeds: [dmEmbed] });
-        } catch (error) {
-            console.error("⚠️ Couldn't send a DM to the user.", error);
-        }
+            // 📩 Embed für den Server
+            const serverEmbed = new EmbedBuilder()
+                .setColor("#ff9900")
+                .setTitle("🚪 Benutzer wurde gekickt!")
+                .setDescription(`Der Benutzer **${user.tag}** wurde vom Server entfernt.`)
+                .addFields(
+                    { name: "👮 Gekickt von:", value: `${interaction.user.tag}`, inline: true },
+                    { name: "📜 Grund:", value: reason, inline: true }
+                )
+                .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+                .setTimestamp();
 
-        try {
-            // 📌 Kick den Nutzer
+            // 🔨 Benutzer kicken
             await member.kick(reason);
 
-            // 📌 Erstelle den Kick-Embed für den Server
-            const kickEmbed = new EmbedBuilder()
-                .setColor(0xffa500)
-                .setTitle("✅ Nutzer gekickt!")
-                .setDescription(`**${targetUser.tag}** were finally kicked.`)
-                .addFields(
-                    { name: "📅 Date", value: kickDate, inline: true },
-                    { name: "👤 Kicked by", value: `${moderator.tag}`, inline: true },
-                    { name: "📌 Reason", value: reason, inline: false }
-                )
-                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+            // 📂 In den Logs speichern
+            logModerationAction(interaction.guild.id, user.id, "kick", interaction.user.tag, reason);
 
-                // Image bearbeiten
-                .setFooter({ text: "Made by Lenny & Timi", iconURL: interaction.guild.iconURL() });
+            // 📩 Nachricht im Server-Channel senden
+            await interaction.channel.send({ embeds: [serverEmbed] });
 
-            // 📌 Antworte mit dem Embed im Channel
-            await interaction.reply({ embeds: [kickEmbed] });
+            // ✅ Erfolgsmeldung im Chat
+            await interaction.editReply({ content: `✅ **${user.tag}** wurde gekickt!`, ephemeral: true });
 
         } catch (error) {
-            console.error("❌ Error during the kick:", error);
-            await interaction.reply({ content: "❌ Error during kicking the user!", ephemeral: true });
+            console.error("❌ Fehler beim Kicken:", error);
+            await interaction.editReply({ content: "❌ Fehler beim Kicken des Benutzers." });
         }
-    },
+    }
 };
+
+// 📌 Funktion zur Speicherung der Logs
+function logModerationAction(guildId, userId, action, moderator, reason) {
+    const logs = fs.existsSync(moderationLogsPath) ? JSON.parse(fs.readFileSync(moderationLogsPath, "utf8")) : {};
+
+    if (!logs[guildId]) logs[guildId] = [];
+
+    logs[guildId].push({
+        userId: userId,
+        action: action,
+        moderator: moderator,
+        reason: reason,
+        timestamp: new Date().toISOString()
+    });
+
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(logs, null, 4));
+    console.log(`✅ [LOG] ${action} für User ${userId} durch ${moderator}`);
+}

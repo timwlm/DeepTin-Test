@@ -1,4 +1,31 @@
 const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
+
+// 📌 Funktion zum Speichern der Moderationsaktion
+function logModerationAction(guildId, userId, action, moderator, reason) {
+    const moderationLogs = fs.existsSync(moderationLogsPath)
+        ? JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"))
+        : {};
+
+    if (!moderationLogs[guildId]) {
+        moderationLogs[guildId] = [];
+    }
+
+    const logEntry = {
+        userId: userId,
+        action: action,
+        moderator: moderator,
+        reason: reason,
+        timestamp: new Date().toISOString()
+    };
+
+    moderationLogs[guildId].push(logEntry);
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(moderationLogs, null, 4));
+    console.log(`✅ [LOG] ${action} durch ${moderator}`);
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,34 +37,18 @@ module.exports = {
                 .setRequired(true)),
 
     async execute(interaction) {
-        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-            return await interaction.reply({ content: "❌ You do not have permission to delete messages!", ephemeral: true });
-        }
-
-        if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-            return await interaction.reply({ content: "❌ You do not have permission to delete messages!", ephemeral: true });
-        }
+        await interaction.deferReply({ ephemeral: true });
 
         const amount = interaction.options.getInteger('number');
-
         if (amount < 1 || amount > 100) {
-            return await interaction.reply({ content: "❌ You can only delete between 1 and 100 messages at a time!", ephemeral: true });
+            return await interaction.editReply({ content: "❌ You can only delete between 1 and 100 messages!", ephemeral: true });
         }
 
         try {
-            // Interaktion sofort bestätigen, um Discords 3-Sekunden-Limit zu umgehen
-            await interaction.deferReply({ ephemeral: true });
-
-            // Nachrichten löschen
             await interaction.channel.bulkDelete(amount, true);
+            logModerationAction(interaction.guild.id, interaction.user.id, "clear", interaction.user.tag, `Deleted ${amount} messages`);
 
-            // Erfolgsmeldung senden
-            const msg = await interaction.channel.send(`✅ **${amount}** messages were deleted.`);
-            
-            setTimeout(() => msg.delete().catch(() => {}), 5000); // Nachricht nach 5 Sekunden löschen
-
-            // Interaktion bearbeiten, damit Discord nicht die Fehlermeldung anzeigt
-            await interaction.editReply({ content: `✅ **${amount}**Messages were successfully deleted.`, ephemeral: true });
+            await interaction.editReply({ content: `✅ **${amount}** messages deleted.`, ephemeral: true });
 
         } catch (error) {
             console.error("❌ Error deleting messages", error);

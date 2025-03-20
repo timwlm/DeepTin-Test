@@ -1,4 +1,31 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
+
+// 📌 Funktion zum Speichern der Moderationsaktion
+function logModerationAction(guildId, userId, action, moderator, reason) {
+    const moderationLogs = fs.existsSync(moderationLogsPath)
+        ? JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"))
+        : {};
+
+    if (!moderationLogs[guildId]) {
+        moderationLogs[guildId] = [];
+    }
+
+    const logEntry = {
+        userId: userId,
+        action: action,
+        moderator: moderator,
+        reason: reason,
+        timestamp: new Date().toISOString()
+    };
+
+    moderationLogs[guildId].push(logEntry);
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(moderationLogs, null, 4));
+    console.log(`✅ [LOG] ${action} für User ${userId} durch ${moderator}`);
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,7 +43,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        await interaction.deferReply(); // Antwortverzögerung, um Fehler zu vermeiden
+        await interaction.deferReply(); // ✅ Antwortverzögerung, um doppelte Antworten zu vermeiden
 
         const userId = interaction.options.getString('userid');
         const imageUrl = interaction.options.getString('image') || null;
@@ -43,6 +70,9 @@ module.exports = {
             // ✅ Nutzer entbannen
             await guild.bans.remove(userId);
             console.log(`✅ ${bannedUser.user.tag} got unbanned.`);
+
+            // 📌 Moderationslog speichern
+            logModerationAction(interaction.guild.id, userId, "unban", interaction.user.tag, "No reason provided");
 
             // 🎟 Automatischen Einladungslink generieren
             let inviteChannel = guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.CreateInstantInvite));
@@ -78,7 +108,7 @@ module.exports = {
             const unbanEmbed = new EmbedBuilder()
                 .setColor(0x0099ff)
                 .setTitle("✅ User unbanned")
-                .setDescription(`**${bannedUser.user.tag}** were successfully unbanned.`)
+                .setDescription(`**${bannedUser.user.tag}** was successfully unbanned.`)
                 .addFields(
                     { name: "👤 Unbanned by", value: `${interaction.user.tag}`, inline: true },
                     { name: "📌 Server", value: `${guild.name}`, inline: true }
