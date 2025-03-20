@@ -1,0 +1,92 @@
+{
+    "GUILD_ID": {
+        "ticketName": "Support Tickets",
+        "categoryId": "123456789012345678",
+        "supportRoleId": "987654321098765432",
+        "color": "#0099ff",
+        "categories": [
+            {
+                "name": "Allgemeine Anfragen"
+            },
+            {
+                "name": "Technischer Support"
+            },
+            {
+                "name": "Bug Reports"
+            }
+        ]
+    },
+    "1347572289750700102": {
+        "ticketName": "**Erstelle ein Ticket**",
+        "categoryId": "1348927602513149972",
+        "supportRoleId": "1349810163170938941",
+        "color": "#0099ff",
+        "panelGif": "https://media.discordapp.net/attachments/1348969288001785897/1350616784461627483/Black_White_Blue_Neon_Flash_Digital_Opening_Video_Youtube_Intro_3.gif?ex=67d95da6&is=67d80c26&hm=299f79de59d12a455dd73753ff61cf5ec998c86ff9e528cb511766b429e728a3&width=688&height=386&",
+        "embedGif": "https://cdn.discordapp.com/attachments/1350234746395037787/1351182393058525306/IMG-5909.gif?ex=67d9722a&is=67d820aa&hm=a10d601463a8844c59a8c514c80bef40caf70afacd57f675fe51b2e5e698cbdc&",
+        "categories": [
+            {
+                "name": "🐳 Allgemeine Fragen"
+            },
+            {
+                "name": "🐳 Partnerschaft"
+            },
+            {
+                "name": "🐳 Fehler"
+            },
+            {
+                "name": "🐳 Bewerbung"
+            }
+        ]
+    },
+    "1296008107419369503": {
+        "ticketName": "Tim",
+        "categoryId": "1296008107419369504",
+        "supportRoleId": "1296008107419369503",
+        "color": "#0099ff",
+        "categories": [
+            {
+                "name": "hund"
+            },
+            {
+                "name": "katze"
+            },
+            {
+                "name": "maus"
+            }
+        ]
+    },
+    "1348687677976870932": {
+        "ticketName": "Erstelle ein Ticket",
+        "categoryId": "1349409280687869962",
+        "supportRoleId": "1349036704811712544",
+        "color": "#000000",
+        "categories": [
+            {
+                "name": "Support"
+            },
+            {
+                "name": "Bugs"
+            },
+            {
+                "name": "Allgemeine Fragen"
+            }
+        ]
+    },
+    "1336730822375510026": {
+        "ticketName": "Erstelle ein Ticket",
+        "categoryId": "1337692295994150914",
+        "supportRoleId": "1337416411366293624",
+        "color": "#0099ff",
+        "categories": [
+            {
+                "name": "Support"
+            },
+            {
+                "name": "Fragen"
+            },
+            {
+                "name": "Bewerbung"
+            }
+        ]
+    }
+}
