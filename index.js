@@ -6,15 +6,35 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-const ticketSettingsPath = path.join(__dirname, 'config/ticketSettings.json');
+const settingsPath = path.join(__dirname, 'config/ticketSettings.json');
 const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json'); // 🔥 JTC-Config
 const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json'); // ✅ Korrektur
 const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json'); // Auto Rolle 
 const serverInfoPath = path.join(__dirname, 'config/serverInfo.json');
 const moderationLogsPath = path.join(__dirname, 'config/moderationLogs.json');
-const logSettingsPath = path.join(__dirname, 'config/logSettings.json'); // 🔥 Log-Settings für /logs
 
-const jsonFiles = [ticketSettingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath, moderationLogsPath, logSettingsPath];
+const jsonFiles = [settingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath, moderationLogsPath];
+
+const loadJSON = (filePath) => {
+    try {
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, JSON.stringify({}, null, 4));
+            console.log(`📂 Datei erstellt: ${filePath}`);
+        }
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (error) {
+        console.error(`❌ Fehler beim Laden der Datei ${filePath}:`, error);
+        return {};
+    }
+};
+
+const saveJSON = (filePath, data) => {
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 4));
+    } catch (error) {
+        console.error(`❌ Fehler beim Speichern der Datei ${filePath}:`, error);
+    }
+};
 
 jsonFiles.forEach(filePath => {
     if (!fs.existsSync(filePath)) {
@@ -23,7 +43,15 @@ jsonFiles.forEach(filePath => {
     }
 });
 
-console.log("📂 [JSON SETUP] JSON-Dateien wurden überprüft!");
+// 🔄 JSON-Dateien beim Start laden
+const ticketSettings = loadJSON(settingsPath);
+const jtcSettings = loadJSON(jtcSettingsPath);
+const welcomeSettings = loadJSON(welcomeSettingsPath);
+const autoroleSettings = loadJSON(autoroleSettingsPath);
+const serverInfoSettings = loadJSON(serverInfoPath);
+const moderationLogs = loadJSON(moderationLogsPath);
+
+console.log("✅ Alle JSON-Dateien erfolgreich geladen.");
 
 const client = new Client({
     intents: [
@@ -71,25 +99,22 @@ client.once('ready', () => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) {
-        console.error(`❌ Command ${interaction.commandName} not found!`);
-        return;
-    }
-
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(`❌ Error in /${interaction.commandName}:`, error);
-
-        // ✅ Sicherstellen, dass nicht zweimal geantwortet wird
-        if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: '❌ Error executing the command!', ephemeral: true });
-        } else if (interaction.deferred) {
-            await interaction.editReply({ content: '❌ Error executing the command!' });
+    if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
+        if (!command) {
+            console.error(`❌ Command ${interaction.commandName} not found!`);
+            return;
         }
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(`❌ Error in /${interaction.commandName}:`, error);
+            await interaction.reply({ content: '❌ Error executing the command!', ephemeral: true });
+        }
+    } else if (interaction.isButton() && interaction.customId.startsWith("ticket_")) {
+        await handleTicketInteraction(interaction);
+    } else if (interaction.isButton() && interaction.customId.startsWith("jtc_")) {
+        await handleJTCInteraction(interaction);
     }
 });
 
@@ -604,8 +629,8 @@ client.on("guildCreate", async (guild) => {
     }
 
     // **2️⃣ Ticket-System initialisieren**
-    if (fs.existsSync(ticketSettingsPath)) {
-        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
+    if (fs.existsSync(settingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
 
         if (!ticketSettings[guildId]) {
             ticketSettings[guildId] = {
@@ -619,7 +644,7 @@ client.on("guildCreate", async (guild) => {
                     { name: "Bug Reports" }
                 ]
             };
-            const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
+            fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
             console.log(`✅ [Tickets] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(ticketSettings[guildId], null, 4));
         } else {
             console.log(`📂 [Tickets] Existiert bereits für "${guild.name}":`, JSON.stringify(ticketSettings[guildId], null, 4));
@@ -675,6 +700,7 @@ client.on("guildDelete", async (guild) => {
     console.log(`❌ [GUILD LEAVE] Der Bot wurde von ${guild.name} entfernt.`);
 
     const guildId = guild.id;
+
     // **1️⃣ Entferne aus Auto-Role System**
     if (fs.existsSync(autoroleSettingsPath)) {
         const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, "utf8"));
@@ -683,10 +709,10 @@ client.on("guildDelete", async (guild) => {
     }
 
     // **2️⃣ Entferne aus Ticket-System**
-    if (fs.existsSync(ticketSettingsPath)) {
-        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
+    if (fs.existsSync(settingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
         if (ticketSettings[guildId]) delete ticketSettings[guildId];
-        fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
+        fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
     }
 
     // **3️⃣ Entferne aus JTC-System**
@@ -719,26 +745,26 @@ if (!fs.existsSync(moderationLogsPath)) {
     console.log(`📂 Datei erstellt: ${moderationLogsPath}`);
 }
 
+// **📌 Moderationsaktionen speichern**
 function logModerationAction(guildId, userId, action, moderator, reason) {
-    const logs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
+    const moderationLogs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
 
-    if (!logs[guildId]) logs[guildId] = [];
+    if (!moderationLogs[guildId]) {
+        moderationLogs[guildId] = [];
+    }
 
     const logEntry = {
-        userId,
-        action,
-        moderator,
-        reason,
+        userId: userId,
+        action: action,
+        moderator: moderator,
+        reason: reason,
         timestamp: new Date().toISOString()
     };
 
-    logs[guildId].push(logEntry);
-    fs.writeFileSync(moderationLogsPath, JSON.stringify(logs, null, 4));
-
-    console.log(`✅ [LOG] ${action} für ${userId} von ${moderator}`);
+    moderationLogs[guildId].push(logEntry);
+    fs.writeFileSync(moderationLogsPath, JSON.stringify(moderationLogs, null, 4));
+    console.log(`✅ [LOG] ${action} für User ${userId} durch ${moderator}`);
 }
-
-module.exports = { logModerationAction };
 
 // **📌 Event: User wird gebannt**
 client.on(Events.GuildBanAdd, async (ban) => {
@@ -754,20 +780,75 @@ client.on(Events.GuildBanAdd, async (ban) => {
     );
 });
 
+// **📌 Event: User wird gekickt**
+client.on(Events.GuildMemberRemove, async (member) => {
+    if (member.kickable) {
+        console.log(`👢 ${member.user.tag} wurde gekickt.`);
 
-// Event Clearen 
+        logModerationAction(
+            member.guild.id,
+            member.user.id,
+            "kick",
+            "Unbekannt (Manueller Kick)",
+            "Kein Grund angegeben"
+        );
+    }
+});
 
-client.on(Events.MessageDeleteBulk, async (messages) => {
-    const channel = messages.first()?.channel;
-    if (!channel) return;
+// **📌 Slash-Command zum Bannen eines Users**
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
 
-    logModerationAction(
-        channel.guild.id,
-        "Massenlöschung",
-        "clear",
-        "Unbekannt",
-        `${messages.size} Nachrichten gelöscht in ${channel.name}`
-    );
+    if (interaction.commandName === "ban") {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Benutzer zu bannen.", ephemeral: true });
+        }
+
+        const user = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
+
+        if (!user) return interaction.reply({ content: "❌ Benutzer nicht gefunden.", ephemeral: true });
+
+        const member = interaction.guild.members.cache.get(user.id);
+        if (!member) return interaction.reply({ content: "❌ Der Benutzer ist nicht auf diesem Server.", ephemeral: true });
+
+        try {
+            await member.ban({ reason: reason });
+            logModerationAction(interaction.guild.id, user.id, "ban", interaction.user.tag, reason);
+            interaction.reply({ content: `✅ ${user.tag} wurde gebannt.\n📜 Grund: ${reason}` });
+        } catch (error) {
+            console.error("❌ Fehler beim Bannen:", error);
+            interaction.reply({ content: "❌ Fehler beim Bannen des Benutzers.", ephemeral: true });
+        }
+    }
+});
+
+// **📌 Slash-Command zum Kicken eines Users**
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === "kick") {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+            return interaction.reply({ content: "❌ Du hast keine Berechtigung, Benutzer zu kicken.", ephemeral: true });
+        }
+
+        const user = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
+
+        if (!user) return interaction.reply({ content: "❌ Benutzer nicht gefunden.", ephemeral: true });
+
+        const member = interaction.guild.members.cache.get(user.id);
+        if (!member) return interaction.reply({ content: "❌ Der Benutzer ist nicht auf diesem Server.", ephemeral: true });
+
+        try {
+            await member.kick(reason);
+            logModerationAction(interaction.guild.id, user.id, "kick", interaction.user.tag, reason);
+            interaction.reply({ content: `✅ ${user.tag} wurde gekickt.\n📜 Grund: ${reason}` });
+        } catch (error) {
+            console.error("❌ Fehler beim Kicken:", error);
+            interaction.reply({ content: "❌ Fehler beim Kicken des Benutzers.", ephemeral: true });
+        }
+    }
 });
 
 // **📌 Slash-Command: Moderationslogs anzeigen**
@@ -786,7 +867,7 @@ client.on(Events.InteractionCreate, async interaction => {
             return interaction.reply({ content: "📜 Es gibt keine Moderationslogs für diesen Server.", ephemeral: true });
         }
 
-        const logEntries = guildLogs.slice(-5).reverse().map(log =>
+        const logEntries = guildLogs.slice(-5).reverse().map(log => 
             `📅 **${new Date(log.timestamp).toLocaleString()}**\n👤 **User:** <@${log.userId}>\n⚡ **Aktion:** ${log.action}\n👮 **Moderator:** ${log.moderator}\n📜 **Grund:** ${log.reason}`
         ).join("\n\n");
 
@@ -798,151 +879,6 @@ client.on(Events.InteractionCreate, async interaction => {
 
         interaction.reply({ embeds: [embed] });
     }
-});
-
-//BANNEN
-client.on(Events.GuildBanAdd, async (ban) => {
-    console.log(`⛔ ${ban.user.tag} wurde gebannt.`);
-
-    bannedUsers.add(ban.user.id); // Benutzer merken, um Kick-Fehllog zu verhindern
-
-    logModerationAction(
-        ban.guild.id,
-        ban.user.id,
-        "ban",
-        "Unbekannt (Manueller Ban)",
-        "Kein Grund angegeben"
-    );
-
-    sendLogMessage(ban.guild.id, {
-        userId: ban.user.id,
-        action: "ban",
-        moderator: "Unbekannt (Manueller Ban)",
-        reason: "Kein Grund angegeben",
-        timestamp: new Date().toISOString()
-    }, client);
-});
-
-client.on(Events.GuildMemberRemove, async (member) => {
-    if (!fs.existsSync(moderationLogsPath)) return;
-
-    // Prüfen, ob der User bereits als gebannt markiert ist
-    if (bannedUsers.has(member.user.id)) {
-        console.log(`⚠️ [LOG] Ban erkannt, kein Kick-Log für ${member.user.tag}.`);
-        bannedUsers.delete(member.user.id); // Eintrag nach 1x Log entfernen
-        return;
-    }
-
-    console.log(`👢 ${member.user.tag} wurde gekickt.`);
-
-    logModerationAction(
-        member.guild.id,
-        member.user.id,
-        "kick",
-        "Unbekannt (Manueller Kick)",
-        "Kein Grund angegeben",
-        client
-    );
-
-    sendLogMessage(member.guild.id, {
-        userId: member.user.id,
-        action: "kick",
-        moderator: "Unbekannt (Manueller Kick)",
-        reason: "Kein Grund angegeben",
-        timestamp: new Date().toISOString()
-    }, client);
-});
-
-
-client.on(Events.MessageBulkDelete, async (messages) => {
-    const guildId = messages.first()?.guild?.id;
-    if (!guildId) return;
-
-    logModerationAction(
-        guildId,
-        "Mehrere Nachrichten",
-        "clear",
-        `<@${messages.first().author?.id || "Unbekannt"}>`, 
-        `${messages.size} Nachrichten gelöscht.`,
-        client
-    );
-});
-
-// 📌 Log-Funktion
-function logModerationAction(guildId, userId, action, moderator, reason) {
-    if (!fs.existsSync(moderationLogsPath)) return;
-
-    const logs = JSON.parse(fs.readFileSync(moderationLogsPath, "utf8"));
-    if (!logs[guildId]) logs[guildId] = [];
-
-    const logEntry = {
-        userId,
-        action,
-        moderator,
-        reason,
-        timestamp: new Date().toISOString()
-    };
-
-    logs[guildId].push(logEntry);
-    fs.writeFileSync(moderationLogsPath, JSON.stringify(logs, null, 4));
-
-    console.log(`✅ [LOG] ${action} für ${userId} von ${moderator}`);
-
-    sendLogMessage(guildId, logEntry, client);
-}
-
-// 📌 Funktion zum Senden der Logs ins Log-Channel
-function sendLogMessage(guildId, logEntry, client) {
-    if (!fs.existsSync(logSettingsPath)) return; // ❗ KORREKTUR: `logSettingsPath` statt `settingsPath`
-
-    const settings = JSON.parse(fs.readFileSync(logSettingsPath, 'utf8'));
-    if (!settings[guildId] || !settings[guildId].logChannel) return;
-
-    const logChannelId = settings[guildId].logChannel;
-    const logChannel = client.channels.cache.get(logChannelId);
-
-    if (!logChannel) return;
-
-    const embed = new EmbedBuilder()
-        .setColor(logEntry.action === "ban" ? "#ff0000" :
-            logEntry.action === "kick" ? "#ff9900" :
-                "#ffaa00") // Farbe für clear
-        .setTitle(`⚡ Moderationsaktion: ${logEntry.action.toUpperCase()}`)
-        .addFields(
-            { name: "👤 Benutzer", value: logEntry.userId === "Mehrere Nachrichten" ? "----" : `<@${logEntry.userId}>`, inline: true },
-            { name: "👮 Moderator", value: logEntry.moderator !== "Unbekannt" ? `<@${logEntry.moderator}>` : "Unbekannt", inline: true },
-            { name: "📜 Grund", value: logEntry.reason, inline: false }
-        )
-        .setTimestamp();
-
-    logChannel.send({ embeds: [embed] }).catch(console.error);
-}
-
-//TEST 
-
-client.on(Events.MessageBulkDelete, async (messages) => {
-    const guildId = messages.first()?.guild?.id;
-    if (!guildId) return;
-
-    const deletedMessages = messages.map(msg => `📌 **${msg.author.tag}:** ${msg.content}`).join("\n") || "Keine Nachrichteninhalte verfügbar.";
-
-    // 📌 Speichere die Löschung im Moderationslog
-    logModerationAction(
-        guildId,
-        "Mehrere Nachrichten",
-        "clear",
-        "Unbekannt (Mod-Befehl oder Massenlöschung)",
-        `${messages.size} Nachrichten gelöscht.`
-    );
-
-    // 📩 Log-Nachricht senden
-    sendLogMessage(guildId, {
-        userId: "Mehrere Nachrichten",
-        action: "clear",
-        moderator: "Unbekannt (Mod-Befehl oder Massenlöschung)",
-        reason: `${messages.size} Nachrichten gelöscht.`,
-        timestamp: new Date().toISOString()
-    }, client);
 });
 
 // **Bot starten**

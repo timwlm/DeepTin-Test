@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, ChannelType } = 
 const fs = require('fs');
 const path = require('path');
 
-const ticketSettingsPath = path.join(__dirname, 'config/ticketSettings.json');
+const settingsPath = path.join(__dirname, '../../config/ticketSettings.json');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -66,7 +66,7 @@ module.exports = {
             return interaction.reply({ content: "❌ Error: No valid ticket categories specified!", ephemeral: true });
         }
 
-        const settings = fs.existsSync(ticketSettingsPath) ? JSON.parse(fs.readFileSync(ticketSettingsPath)) : {};
+        const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath)) : {};
 
         settings[guildId] = {
             ticketName,
@@ -78,7 +78,7 @@ module.exports = {
             categories: ticketCategories.map(name => ({ name }))
         };
 
-        fs.writeFileSync(ticketSettingsPath, JSON.stringify(settings, null, 4));
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4));
 
         const embed = new EmbedBuilder()
             .setColor(color)

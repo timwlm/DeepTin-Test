@@ -60,7 +60,7 @@ Speichert den Willkommenskanal & Einstellungen.
 
 ⸻
 
-💡 Mitwirken!
+💡 Mitwirken
 
 -> Gerne dem Discord joinen und sich bewerben: https://discord.gg/uedU8ds2rX
 

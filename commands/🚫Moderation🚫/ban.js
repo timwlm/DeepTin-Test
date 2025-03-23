@@ -1,79 +1,84 @@
-const { SlashCommandBuilder, PermissionsBitField, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const { sendLogMessage } = require("../../utils/logging.js"); // Pfad entsprechend anpassen
-const moderationLogsPath = path.join(__dirname, '../../config/moderationLogs.json');
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ban')
-        .setDescription('Bannt einen User vom Server.')
-        .addUserOption(option => option.setName('user').setDescription('Der User, der gebannt werden soll.').setRequired(true))
-        .addStringOption(option => option.setName('reason').setDescription('Der Grund für den Bann.').setRequired(false)),
+        .setDescription('Bans a user.')
+        .addUserOption(option => 
+            option.setName('user')
+                .setDescription('The user you wanna ban.')
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('Reason for the ban.')
+                .setRequired(false)),
 
     async execute(interaction) {
-        await interaction.deferReply();
+        const targetUser = interaction.options.getUser('user');
+        const reason = interaction.options.getString('reason') || "No Reason mentioned.";
+        const member = await interaction.guild.members.fetch(targetUser.id);
+        const moderator = interaction.user; // Der ausführende Nutzer
+        const banDate = new Date().toLocaleString(); // Datum des Banns
 
+        // 📌 Überprüfen, ob der ausführende Nutzer Bannrechte hat
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-            return await interaction.editReply({ content: "❌ Du hast keine Berechtigung, Benutzer zu bannen." });
+            return await interaction.reply({ content: "❌ You dont have the permisson to ban a user.", ephemeral: true });
         }
 
-        const user = interaction.options.getUser("user");
-        const reason = interaction.options.getString("reason") || "Kein Grund angegeben";
+        // 📌 Überprüfen, ob der Bot Bannrechte hat
+        if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+            return await interaction.reply({ content: "❌ I dont have the permission to ban a user.", ephemeral: true });
+        }
 
-        if (!user) return await interaction.editReply({ content: "❌ Benutzer nicht gefunden." });
+        // 📌 Überprüfen, ob der Nutzer bannbar ist (nicht Admin oder höher als der Bot)
+        if (!member.bannable) {
+            return await interaction.reply({ content: "❌ I cant ban this user. This user is above me.", ephemeral: true });
+        }
 
-        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-        if (!member) return await interaction.editReply({ content: "❌ Der Benutzer ist nicht auf diesem Server." });
+        // 📌 Erstelle den DM-Ban-Embed
+        const dmEmbed = new EmbedBuilder()
+            .setColor(0xff0000)
+            .setTitle("🚫 You were banned. How silly!")
+            .setDescription(`You were banned by the admin **${interaction.guild.name}**.`)
+            .addFields(
+                { name: "📅 Date", value: banDate, inline: true },
+                { name: "👤 Banned by", value: `${moderator.tag}`, inline: true },
+                { name: "📌 Reason", value: reason, inline: false }
+            )
+            .setFooter({ text: "Please contact a moderator if you have any questions." });
 
         try {
-            // 📩 Embed für den User (DM)
-            const dmEmbed = new EmbedBuilder()
-                .setColor("#ff0000")
-                .setTitle("🚨 Du wurdest vom Server gebannt!")
-                .setDescription(`Du wurdest vom Server **${interaction.guild.name}** gebannt.`)
-                .addFields(
-                    { name: "👮 Gebannt von:", value: `${interaction.user.tag}`, inline: true },
-                    { name: "📜 Grund:", value: reason, inline: true }
-                )
-                .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
-                .setTimestamp();
+            // 📌 Sende eine DM an den gebannten Nutzer
+            await targetUser.send({ embeds: [dmEmbed] });
+        } catch (error) {
+            console.error("⚠️ I cant send a DM to the user.", error);
+        }
 
-            // 📩 Embed für den Server
-            const serverEmbed = new EmbedBuilder()
-                .setColor("#ff0000")
-                .setTitle("🚨 Benutzer wurde gebannt!")
-                .setDescription(`Der Benutzer **${user.tag}** wurde vom Server gebannt.`)
-                .addFields(
-                    { name: "👮 Gebannt von:", value: `${interaction.user.tag}`, inline: true },
-                    { name: "📜 Grund:", value: reason, inline: true }
-                )
-                .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-                .setTimestamp();
-
-            // ❌ Versuch, dem Benutzer eine DM zu senden
-            try {
-                await user.send({ embeds: [dmEmbed] });
-                console.log(`✅ DM an ${user.tag} gesendet.`);
-            } catch (error) {
-                console.log(`⚠️ Konnte keine DM an ${user.tag} senden.`);
-            }
-
-            // 🔨 Benutzer bannen
+        try {
+            // 📌 Ban den Nutzer
             await member.ban({ reason });
 
-            // 📂 In den Logs speichern
-            logModerationAction(interaction.guild.id, user.id, "ban", interaction.user.tag, reason);
+            // 📌 Erstelle den Ban-Embed für den Server
+            const banEmbed = new EmbedBuilder()
+                .setColor(0xbb0505)
+                .setTitle("✅ User banned!")
+                .setDescription(`**${targetUser.tag}** were finally banned.`)
+                .addFields(
+                    { name: "📅 Date", value: banDate, inline: true },
+                    { name: "👤 Banned by", value: `${moderator.tag}`, inline: true },
+                    { name: "📌 Reason:", value: reason, inline: false }
+                )
+                .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+                
+                // Image bearbeiten
+                .setFooter({ text: "Made by Lenny & Timi", iconURL: interaction.guild.iconURL() });
 
-            // 📩 Nachricht im Server-Channel senden
-            await interaction.channel.send({ embeds: [serverEmbed] });
-
-            // ✅ Erfolgsmeldung im Chat
-            await interaction.editReply({ content: `✅ **${user.tag}** wurde gebannt!`, ephemeral: true });
+            // 📌 Antworte mit dem Embed im Channel
+            await interaction.reply({ embeds: [banEmbed] });
 
         } catch (error) {
-            console.error("❌ Fehler beim Bannen:", error);
-            await interaction.editReply({ content: "❌ Fehler beim Bannen des Benutzers." });
+            console.error("❌ Error:", error);
+            await interaction.reply({ content: "❌ Error during banning the user.", ephemeral: true });
         }
-    }
+    },
 };

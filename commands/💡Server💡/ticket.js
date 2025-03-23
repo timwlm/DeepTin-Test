@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBui
 const fs = require('fs');
 const path = require('path');
 
-const ticketSettingsPath = path.join(__dirname, 'config/ticketSettings.json');
+const settingsPath = path.join(__dirname, '../../config/ticketSettings.json');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -12,11 +12,11 @@ module.exports = {
     async execute(interaction) {
         const guildId = interaction.guild.id;
 
-        if (!fs.existsSync(ticketSettingsPath)) {
+        if (!fs.existsSync(settingsPath)) {
             return interaction.reply({ content: "⚠️ /ticket-setup is not setted.", ephemeral: true });
         }
 
-        const settingsData = fs.readFileSync(ticketSettingsPath);
+        const settingsData = fs.readFileSync(settingsPath);
         const settings = JSON.parse(settingsData);
 
         if (!settings[guildId] || !settings[guildId].categories || settings[guildId].categories.length === 0) {

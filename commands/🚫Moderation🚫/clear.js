@@ -1,53 +1,47 @@
 const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
-const { sendLogMessage } = require("../../utils/logging.js"); // Pfad entsprechend anpassen
 
-console.log("logModerationAction:", typeof logModerationAction);
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('clear')
-        .setDescription('Löscht eine bestimmte Anzahl von Nachrichten.')
-        .addIntegerOption(option =>
-            option.setName('anzahl')
-                .setDescription('Anzahl der zu löschenden Nachrichten (max. 100)')
-                .setRequired(true)
-        )
-        .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages),
+        .setDescription('Deletes a specified number of messages from the current channel.')
+        .addIntegerOption(option => 
+            option.setName('number')
+                .setDescription('The number of messages to be deleted (max. 100)')
+                .setRequired(true)),
 
     async execute(interaction) {
-        const amount = interaction.options.getInteger('anzahl');
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+            return await interaction.reply({ content: "❌ You do not have permission to delete messages!", ephemeral: true });
+        }
+
+        if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+            return await interaction.reply({ content: "❌ You do not have permission to delete messages!", ephemeral: true });
+        }
+
+        const amount = interaction.options.getInteger('number');
 
         if (amount < 1 || amount > 100) {
-            return interaction.reply({ content: "❌ Gib eine Zahl zwischen 1 und 100 an.", ephemeral: true });
+            return await interaction.reply({ content: "❌ You can only delete between 1 and 100 messages at a time!", ephemeral: true });
         }
 
         try {
-            // 📌 Lösche Nachrichten
-            const deletedMessages = await interaction.channel.bulkDelete(amount, true);
-
-            if (deletedMessages.size === 0) {
-                return interaction.reply({ content: "⚠️ Es konnten keine Nachrichten gelöscht werden. (Sind sie älter als 14 Tage?)", ephemeral: true });
-            }
-
-            // ✅ Antwort an den Moderator senden
+            // Interaktion sofort bestätigen, um Discords 3-Sekunden-Limit zu umgehen
             await interaction.deferReply({ ephemeral: true });
-            await interaction.editReply({ content: `✅ ${deletedMessages.size} Nachrichten gelöscht.` });
 
-            // 📩 Log-Nachricht senden
-            sendLogMessage(interaction.guild.id, {
-                userId: "-", // Benutzer ist irrelevant
-                action: "clear",
-                moderator: `<@${interaction.user.id}>`,  // Ping des Moderators
-                reason: `${deletedMessages.size} Nachrichten gelöscht.`,
-                timestamp: new Date().toISOString()
-            }, interaction.client);
+            // Nachrichten löschen
+            await interaction.channel.bulkDelete(amount, true);
+
+            // Erfolgsmeldung senden
+            const msg = await interaction.channel.send(`✅ **${amount}** messages were deleted.`);
+            
+            setTimeout(() => msg.delete().catch(() => {}), 5000); // Nachricht nach 5 Sekunden löschen
+
+            // Interaktion bearbeiten, damit Discord nicht die Fehlermeldung anzeigt
+            await interaction.editReply({ content: `✅ **${amount}**Messages were successfully deleted.`, ephemeral: true });
 
         } catch (error) {
-            console.error(`❌ Fehler beim Löschen von Nachrichten:`, error);
-
-            // 🔥 Falls ein Fehler auftritt (z.B. Nachrichten zu alt), sichere Antwort verhindern
-            if (!interaction.replied) {
-                await interaction.reply({ content: "❌ Fehler beim Löschen der Nachrichten.", ephemeral: true });
-            }
+            console.error("❌ Error deleting messages", error);
+            await interaction.editReply({ content: "❌ Error!", ephemeral: true });
         }
-    }
+    },
 };
