@@ -6,44 +6,18 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
+// 💾 JSON-Dateipfade
 const settingsPath = path.join(__dirname, 'config/ticketSettings.json');
-const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json'); // 🔥 JTC-Config
-const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json'); // ✅ Korrektur
-const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json'); // Auto Rolle 
+const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json');
+const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json');
+const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json');
 const serverInfoPath = path.join(__dirname, 'config/serverInfo.json');
 const moderationLogsPath = path.join(__dirname, 'config/moderationLogs.json');
 
-const jsonFiles = [settingsPath, jtcSettingsPath, welcomeSettingsPath, autoroleSettingsPath, serverInfoPath, moderationLogsPath];
+// 📂 Utils für JSON-Verwaltung
+const { loadJSON, saveJSON, deleteGuildData } = require('./utils/filemanager');
 
-const loadJSON = (filePath) => {
-    try {
-        if (!fs.existsSync(filePath)) {
-            fs.writeFileSync(filePath, JSON.stringify({}, null, 4));
-            console.log(`📂 Datei erstellt: ${filePath}`);
-        }
-        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    } catch (error) {
-        console.error(`❌ Fehler beim Laden der Datei ${filePath}:`, error);
-        return {};
-    }
-};
-
-const saveJSON = (filePath, data) => {
-    try {
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 4));
-    } catch (error) {
-        console.error(`❌ Fehler beim Speichern der Datei ${filePath}:`, error);
-    }
-};
-
-jsonFiles.forEach(filePath => {
-    if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, JSON.stringify({}, null, 4));
-        console.log(`📂 Datei erstellt: ${filePath}`);
-    }
-});
-
-// 🔄 JSON-Dateien beim Start laden
+// 📥 Lade alle JSON-Daten
 const ticketSettings = loadJSON(settingsPath);
 const jtcSettings = loadJSON(jtcSettingsPath);
 const welcomeSettings = loadJSON(welcomeSettingsPath);
@@ -89,15 +63,23 @@ for (const folder of folders) {
 
 console.log(`✅ ${client.commands.size} Commands wurden geladen.`);
 
-// ✅ **Bot bereit**
 client.once('ready', () => {
     console.log(`✅ Bot ist online als ${client.user.tag}`);
+
     client.user.setPresence({
         status: 'dnd',
         activities: [{ name: 'in die Tiefsee 🐠', type: 3 }]
     });
-});
 
+    // ⏱ Serverinfo-Scheduler für jeden gespeicherten Server starten
+    for (const guildId in serverInfoSettings) {
+        const settings = serverInfoSettings[guildId];
+        if (settings.channelId) {
+            startServerInfoScheduler(client, guildId, settings.channelId);
+            console.log(`🔁 Serverinfo-Scheduler für Guild ${guildId} gestartet.`);
+        }
+    }
+});
 client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
