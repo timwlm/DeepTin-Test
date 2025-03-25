@@ -6,11 +6,11 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-// ✅ Stelle sicher, dass der Ordner "config" existiert
-const configDir = path.join(__dirname, 'config');
+// ✅ KORREKT: Nutze den richtigen Pfad aus paths.js
+const { configDir } = require('./utils/paths');
 if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir);
-    console.log("📁 Ordner 'config' wurde erstellt.");
+    fs.mkdirSync(configDir, { recursive: true });
+    console.log("📁 Ordner 'data/config' wurde erstellt.");
 }
 
 const {

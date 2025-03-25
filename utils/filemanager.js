@@ -1,17 +1,42 @@
 const fs = require('fs');
-const { autoroleSettingsPath } = require('./paths');
+const path = require('path');
+const {
+    autoroleSettingsPath,
+    ticketSettingsPath,
+    jtcSettingsPath,
+    welcomeSettingsPath,
+    serverInfoPath,
+    moderationLogsPath,
+    botSettingsPath,
+    configDir
+} = require('./paths');
 
-// Autorole-Datei automatisch erstellen, falls sie fehlt
-if (!fs.existsSync(autoroleSettingsPath)) {
-    fs.mkdirSync(require('path').dirname(autoroleSettingsPath), { recursive: true });
-    fs.writeFileSync(autoroleSettingsPath, JSON.stringify({}, null, 4));
-    console.log(`📂 autoroleSettings.json wurde erstellt.`);
+// 📁 Stelle sicher, dass das config-Verzeichnis existiert
+if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+    console.log("📁 Ordner 'data/config' wurde erstellt.");
 }
+
+// ✅ JSON-Dateien bei Bedarf automatisch erstellen
+[
+    autoroleSettingsPath,
+    ticketSettingsPath,
+    jtcSettingsPath,
+    welcomeSettingsPath,
+    serverInfoPath,
+    moderationLogsPath,
+    botSettingsPath
+].forEach(filePath => {
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify({}, null, 4));
+        console.log(`📂 Datei erstellt: ${filePath}`);
+    }
+});
 
 function loadJSON(filePath) {
     try {
         if (!fs.existsSync(filePath)) {
-            console.log(`📂 Datei nicht gefunden, erstelle neue: ${filePath}`);
+            console.log(`📂 Datei nicht gefunden, erstelle neu: ${filePath}`);
             fs.writeFileSync(filePath, JSON.stringify({}, null, 4));
         }
 

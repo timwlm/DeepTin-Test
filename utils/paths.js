@@ -1,12 +1,14 @@
-// utils/paths.js
 const path = require('path');
 
+const configDir = path.join(__dirname, '../data/config');
+
 module.exports = {
-    autoroleSettingsPath: path.join(__dirname, '../config/autoroleSettings.json'),
-    ticketSettingsPath: path.join(__dirname, '../config/ticketSettings.json'),
-    jtcSettingsPath: path.join(__dirname, '../config/jtcSettings.json'),
-    welcomeSettingsPath: path.join(__dirname, '../config/welcomeSettings.json'),
-    serverInfoPath: path.join(__dirname, '../config/serverInfo.json'),
-    moderationLogsPath: path.join(__dirname, '../config/moderationLogs.json'),
-    botSettingsPath: path.join(__dirname, '../config/botSettings.json'),
+    configDir,
+    autoroleSettingsPath: path.join(configDir, 'autoroleSettings.json'),
+    ticketSettingsPath: path.join(configDir, 'ticketSettings.json'),
+    jtcSettingsPath: path.join(configDir, 'jtcSettings.json'),
+    welcomeSettingsPath: path.join(configDir, 'welcomeSettings.json'),
+    serverInfoPath: path.join(configDir, 'serverInfo.json'),
+    moderationLogsPath: path.join(configDir, 'moderationLogs.json'),
+    botSettingsPath: path.join(configDir, 'botSettings.json'),
 };
