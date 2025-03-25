@@ -6,19 +6,27 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-// 💾 JSON-Dateipfade
-const settingsPath = path.join(__dirname, 'config/ticketSettings.json');
-const jtcSettingsPath = path.join(__dirname, 'config/jtcSettings.json');
-const welcomeSettingsPath = path.join(__dirname, 'config/welcomeSettings.json');
-const autoroleSettingsPath = path.join(__dirname, 'config/autoroleSettings.json');
-const serverInfoPath = path.join(__dirname, 'config/serverInfo.json');
-const moderationLogsPath = path.join(__dirname, 'config/moderationLogs.json');
+// ✅ Stelle sicher, dass der Ordner "config" existiert
+const configDir = path.join(__dirname, 'config');
+if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir);
+    console.log("📁 Ordner 'config' wurde erstellt.");
+}
 
-// 📂 Utils für JSON-Verwaltung
+const {
+    autoroleSettingsPath,
+    ticketSettingsPath,
+    jtcSettingsPath,
+    welcomeSettingsPath,
+    serverInfoPath,
+    moderationLogsPath,
+    botSettingsPath
+} = require('./utils/paths');
+
 const { loadJSON, saveJSON, deleteGuildData } = require('./utils/filemanager');
 
 // 📥 Lade alle JSON-Daten
-const ticketSettings = loadJSON(settingsPath);
+const ticketSettings = loadJSON(ticketSettingsPath);
 const jtcSettings = loadJSON(jtcSettingsPath);
 const welcomeSettings = loadJSON(welcomeSettingsPath);
 const autoroleSettings = loadJSON(autoroleSettingsPath);
@@ -110,9 +118,9 @@ client.on(Events.InteractionCreate, async interaction => {
 
 async function handleTicketInteraction(interaction) {
     const guildId = interaction.guild.id;
-    if (!fs.existsSync(settingsPath)) return;
+    if (!fs.existsSync(ticketSettingsPath)) return;
 
-    const settings = JSON.parse(fs.readFileSync(settingsPath));
+    const settings = JSON.parse(fs.readFileSync(ticketSettingsPath));
     if (!settings[guildId]) return;
 
     const categoryIndex = parseInt(interaction.values[0].split("_")[1]);
@@ -138,12 +146,12 @@ async function handleTicketInteraction(interaction) {
             ]
         });
 
-        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
         if (!ticketSettings[guildId].activeTickets) ticketSettings[guildId].activeTickets = {};
 
         // 🎟️ Speichere das Ticket in der JSON-Datei
         ticketSettings[guildId].activeTickets[user.id] = channel.id;
-        fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+        fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
         console.log(`🎟️ Ticket für ${user.tag} in ${channel.id} gespeichert!`);
 
         const embed = new EmbedBuilder()
@@ -219,7 +227,7 @@ client.on(Events.InteractionCreate, async interaction => {
         }
 
         // 📂 Lade die Ticket-Datenbank
-        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
 
         if (action === "close") {
             await channel.permissionOverwrites.edit(user.id, { ViewChannel: false });
@@ -248,7 +256,7 @@ client.on(Events.InteractionCreate, async interaction => {
             // 🚪 Ticket aus der Datenbank entfernen
             if (ticketSettings[guildId]?.activeTickets?.[user.id]) {
                 delete ticketSettings[guildId].activeTickets[user.id];
-                fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+                fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
                 console.log(`🚪 Ticket von ${user.tag} entfernt.`);
             }
 
@@ -274,7 +282,7 @@ client.on(Events.InteractionCreate, async interaction => {
             // 🚮 Ticket aus der Datenbank entfernen
             if (ticketSettings[guildId]?.activeTickets?.[user.id]) {
                 delete ticketSettings[guildId].activeTickets[user.id];
-                fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+                fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
                 console.log(`🚮 Ticket von ${user.tag} entfernt.`);
             }
 
@@ -482,61 +490,79 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 const DEFAULT_GIF = "https://cdn.discordapp.com/attachments/1348390411349131325/1351516940664963153/welcome.gif?ex=67daa9bc&is=67d9583c&hm=001595cf47e135ec482a7e40e29b189e03c2d8b8f37536b83283961295570398&";
 const DEFAULT_WELCOME_TEXT = `🦈Hey {member}, we're glad you've landed on our server. We hope you have fun!🐳! 🎊\n\n📜 **Rules:** Please read the rules and follow them.\n✅ **Questions:** If you have any questions, feel free to contact the team🌊\n\n\n🦈Hey {member}, schön dass du auf unserem Server gelandet bist, wir hoffen du hast viel Spaß🐳! 🎊\n\n📜 **Regeln:** Lese dir bitte die Regeln durch und beachte sie.\n✅ **Fragen:** Falls du Fragen hast wende dich gerne an das Team🌊!`;
 
-client.on('guildMemberAdd', async member => {
-    console.log(`✅ [JOIN EVENT] ${member.user.tag} just joined the server.`);
-
-    if (member.user.bot) {
-        console.log(`⚠️ [INFO] ${member.user.tag} is a bot.`);
-        return;
-    }
-
-    if (!fs.existsSync(welcomeSettingsPath)) {
-        console.log("⚠️ [ERROR] The file welcomeSettings.json does not exist.");
-        return;
-    }
-
-    const settings = JSON.parse(fs.readFileSync(welcomeSettingsPath, 'utf8'));
+client.on('guildMemberAdd', async (member) => {
     const guildId = member.guild.id;
 
-    if (!settings[guildId] || !settings[guildId].welcomeChannelId) {
-        console.log(`⚠️ [ERROR] No welcome channel found for server ${member.guild.name}.`);
+    console.log(`✅ [JOIN EVENT] ${member.user.tag} ist dem Server beigetreten.`);
+
+    if (member.user.bot) {
+        console.log(`⚠️ [INFO] ${member.user.tag} ist ein Bot.`);
         return;
     }
 
-    const welcomeChannel = member.guild.channels.cache.get(settings[guildId].welcomeChannelId);
-    if (!welcomeChannel) {
-        console.log(`❌ [ERROR] Welcome channel with ID ${settings[guildId].welcomeChannelId} does not exist or is not visible.`);
-        return;
+    // ============================
+    // 👋 Welcome Message
+    // ============================
+    if (fs.existsSync(welcomeSettingsPath)) {
+        const welcomeSettings = JSON.parse(fs.readFileSync(welcomeSettingsPath, 'utf8'));
+
+        if (welcomeSettings[guildId] && welcomeSettings[guildId].welcomeChannelId) {
+            const welcomeChannel = member.guild.channels.cache.get(welcomeSettings[guildId].welcomeChannelId);
+
+            if (welcomeChannel) {
+                const welcomeGif = welcomeSettings[guildId]?.welcomeGif || DEFAULT_GIF;
+                const welcomeText = welcomeSettings[guildId]?.welcomeText?.replace("{member}", member) || DEFAULT_WELCOME_TEXT.replace("{member}", member);
+
+                const embed = new EmbedBuilder()
+                    .setColor("#0099ff")
+                    .setTitle("We're glad you've landed on our Server!\n")
+                    .setDescription(welcomeText)
+                    .setImage(welcomeGif)
+                    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+                    .setFooter({ text: "Have fun 🐬", iconURL: member.guild.iconURL({ dynamic: true }) })
+                    .setTimestamp();
+
+                try {
+                    await welcomeChannel.send({ content: `🌊 Welcome <@${member.user.id}>`, embeds: [embed] });
+                    console.log(`✅ Begrüßungsnachricht an ${member.user.tag} gesendet.`);
+                } catch (error) {
+                    console.error(`❌ Fehler beim Senden der Begrüßung:`, error);
+                }
+            } else {
+                console.log(`❌ Welcome-Channel mit ID ${welcomeSettings[guildId].welcomeChannelId} nicht gefunden.`);
+            }
+        } else {
+            console.log(`⚠️ Keine Welcome-Daten für ${member.guild.name}.`);
+        }
     }
 
-    // **🌟 Verwende das server-spezifische GIF oder das Standard-GIF**
-    const welcomeGif = settings[guildId]?.welcomeGif || DEFAULT_GIF;
+    // ============================
+    // 🏷️ AutoRole
+    // ============================
+    if (fs.existsSync(autoroleSettingsPath)) {
+        const autoroleSettings = loadJSON(autoroleSettingsPath);
+        const guildSettings = autoroleSettings[guildId] || autoroleSettings["default"];
 
-    // **🌟 Verwende den server-spezifischen Text oder den Standard-Welcome-Text**
-    const welcomeText = settings[guildId]?.welcomeText?.replace("{member}", member) || DEFAULT_WELCOME_TEXT.replace("{member}", member);
+        if (guildSettings && guildSettings.roles && guildSettings.roles.length > 0) {
+            const rolesToAssign = guildSettings.roles
+                .map(roleId => member.guild.roles.cache.get(roleId))
+                .filter(role => role && role.editable);
 
-    console.log(`📩 [INFO] Send welcome message to ${member.user.tag} in ${welcomeChannel.name}`);
-
-    const embed = new EmbedBuilder()
-        .setColor("#0099ff")
-        .setTitle(
-            "We're glad you've landed on our Server!\n"
-        )
-        .setDescription(welcomeText)
-        .setImage(welcomeGif)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({ text: "Have fun 🐬", iconURL: member.guild.iconURL({ dynamic: true }) })
-        .setTimestamp();
-
-    try {
-        await welcomeChannel.send({ content: `🌊 Welcome <@${member.user.id}>`, embeds: [embed] });
-        console.log(`✅ [SUCCESS] Begrüßungsnachricht an ${member.user.tag} gesendet.`);
-    } catch (error) {
-        console.error(`❌ [ERROR] Fehler beim Senden der Begrüßungsnachricht:`, error);
+            if (rolesToAssign.length > 0) {
+                try {
+                    await member.roles.add(rolesToAssign);
+                    console.log(`✅ ${member.user.tag} hat Rollen erhalten: ${rolesToAssign.map(r => r.name).join(', ')}`);
+                } catch (error) {
+                    console.error(`❌ Fehler beim Zuweisen der Rollen:`, error);
+                }
+            } else {
+                console.log(`⚠️ Keine gültigen Rollen gefunden.`);
+            }
+        } else {
+            console.log(`⚠️ Keine AutoRole-Einstellungen für ${member.guild.name}`);
+        }
     }
 });
-
-const botSettingsPath = path.join(__dirname, 'config/botSettings.json');
 
 client.once('ready', async () => {
     console.log(`✅ Bot ist online als ${client.user.tag}`);
@@ -555,40 +581,6 @@ client.once('ready', async () => {
                 }
             }
         }
-    }
-});
-
-client.on('', async (member) => {
-    console.log(`✅ [JOIN EVENT] ${member.user.tag} ist dem Server beigetreten.`);
-
-    if (!fs.existsSync(autoroleSettingsPath)) {
-        console.log("⚠️ [ERROR] Die Datei autoroleSettings.json existiert nicht.");
-        return;
-    }
-
-    const autoroleSettings = JSON.parse(fs.readFileSync(autoroleSettingsPath, 'utf8'));
-    const guildId = member.guild.id;
-    const guildSettings = autoroleSettings[guildId] || autoroleSettings["default"];
-
-    if (!guildSettings || !guildSettings.roles || guildSettings.roles.length === 0) {
-        console.log(`⚠️ [ERROR] Keine Auto-Rollen für Server ${member.guild.name} eingerichtet.`);
-        return;
-    }
-
-    const rolesToAssign = guildSettings.roles
-        .map(roleId => member.guild.roles.cache.get(roleId))
-        .filter(role => role && role.editable); // 🔥 Stellt sicher, dass der Bot die Rolle auch vergeben kann!
-
-    if (rolesToAssign.length === 0) {
-        console.log(`⚠️ [ERROR] Keine gültigen Rollen zum Zuweisen gefunden.`);
-        return;
-    }
-
-    try {
-        await member.roles.add(rolesToAssign);
-        console.log(`✅ ${member.user.tag} hat die Rollen ${rolesToAssign.map(r => r.name).join(', ')} erhalten.`);
-    } catch (error) {
-        console.error(`❌ [ERROR] Fehler beim Zuweisen der Rollen an ${member.user.tag}:`, error);
     }
 });
 
@@ -611,8 +603,8 @@ client.on("guildCreate", async (guild) => {
     }
 
     // **2️⃣ Ticket-System initialisieren**
-    if (fs.existsSync(settingsPath)) {
-        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    if (fs.existsSync(ticketSettingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
 
         if (!ticketSettings[guildId]) {
             ticketSettings[guildId] = {
@@ -626,7 +618,7 @@ client.on("guildCreate", async (guild) => {
                     { name: "Bug Reports" }
                 ]
             };
-            fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+            fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
             console.log(`✅ [Tickets] Standardwerte für "${guild.name}" gespeichert:`, JSON.stringify(ticketSettings[guildId], null, 4));
         } else {
             console.log(`📂 [Tickets] Existiert bereits für "${guild.name}":`, JSON.stringify(ticketSettings[guildId], null, 4));
@@ -691,10 +683,10 @@ client.on("guildDelete", async (guild) => {
     }
 
     // **2️⃣ Entferne aus Ticket-System**
-    if (fs.existsSync(settingsPath)) {
-        const ticketSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    if (fs.existsSync(ticketSettingsPath)) {
+        const ticketSettings = JSON.parse(fs.readFileSync(ticketSettingsPath, "utf8"));
         if (ticketSettings[guildId]) delete ticketSettings[guildId];
-        fs.writeFileSync(settingsPath, JSON.stringify(ticketSettings, null, 4));
+        fs.writeFileSync(ticketSettingsPath, JSON.stringify(ticketSettings, null, 4));
     }
 
     // **3️⃣ Entferne aus JTC-System**
@@ -849,7 +841,7 @@ client.on(Events.InteractionCreate, async interaction => {
             return interaction.reply({ content: "📜 Es gibt keine Moderationslogs für diesen Server.", ephemeral: true });
         }
 
-        const logEntries = guildLogs.slice(-5).reverse().map(log => 
+        const logEntries = guildLogs.slice(-5).reverse().map(log =>
             `📅 **${new Date(log.timestamp).toLocaleString()}**\n👤 **User:** <@${log.userId}>\n⚡ **Aktion:** ${log.action}\n👮 **Moderator:** ${log.moderator}\n📜 **Grund:** ${log.reason}`
         ).join("\n\n");
 

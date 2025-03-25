@@ -1,8 +1,11 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, ChannelType } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+const { welcomeSettingsPath } = require('../../utils/paths');
+const { loadJSON, saveJSON } = require('../../utils/filemanager');
 
-const welcomeSettingsPath = path.join(__dirname, '../../config/welcomeSettings.json');
+const DEFAULT_GIF = "https://cdn.discordapp.com/attachments/1348390411349131325/1351516940664963153/welcome.gif";
+const DEFAULT_WELCOME_TEXT = `🦈Hey {member}, schön dass du auf unserem Server gelandet bist, wir hoffen du hast viel Spaß🐳! 🎊
+📜 **Regeln:** Lese dir bitte die Regeln durch und beachte sie.
+✅ **Fragen:** Falls du Fragen hast, wende dich gerne an das Team🌊!`;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -35,24 +38,22 @@ module.exports = {
         const gif = interaction.options.getString('gif');
         const text = interaction.options.getString('text');
 
-        console.log(`✅ /welcome-setup done! Channel: ${channel.name} (${channel.id}), GIF: ${gif || "Standard"}, Text: ${text || "Standard"}`);
-
-        const settings = fs.existsSync(welcomeSettingsPath) ? JSON.parse(fs.readFileSync(welcomeSettingsPath, 'utf8')) : {};
+        const settings = loadJSON(welcomeSettingsPath);
 
         settings[guildId] = {
             welcomeChannelId: channel.id,
-            welcomeGif: gif || settings[guildId]?.welcomeGif || DEFAULT_GIF,
-            welcomeText: text || settings[guildId]?.welcomeText || DEFAULT_WELCOME_TEXT
+            welcomeGif: gif || DEFAULT_GIF,
+            welcomeText: text || DEFAULT_WELCOME_TEXT
         };
 
-        fs.writeFileSync(welcomeSettingsPath, JSON.stringify(settings, null, 4));
+        saveJSON(welcomeSettingsPath, settings);
 
         const embed = new EmbedBuilder()
             .setColor("#00ff00")
-            .setTitle("✅ Welcomesetup changed")
-            .setDescription(`New Member will be welcomed in <#${channel.id}> .`)
+            .setTitle("✅ Welcome setup configured")
+            .setDescription(`New members will be welcomed in <#${channel.id}>.`)
             .addFields(
-                { name: "📜 Welcometext", value: text || "Standard", inline: false },
+                { name: "📜 Welcome Text", value: text || "Standard", inline: false },
                 { name: "🖼️ GIF", value: gif || "Standard", inline: false }
             );
 

@@ -1,14 +1,11 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, ChannelType } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const settingsPath = path.join(__dirname, '../../config/ticketSettings.json');
+const { loadJSON, saveJSON } = require('../../utils/filemanager');
+const { ticketSettingsPath } = require('../../utils/paths');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ticket-setup')
         .setDescription('Set up the ticket system for your server.')
-
         .addStringOption(option =>
             option.setName('ticket-name')
                 .setDescription('Name for the ticket panel.')
@@ -57,8 +54,8 @@ module.exports = {
         const supportRole = interaction.options.getRole('support-role');
         const ticketCategoriesInput = interaction.options.getString('ticket-category');
         const color = interaction.options.getString('color') || "#0099ff";
-        const panelGif = interaction.options.getString('panel-gif') || "https://media.discordapp.net/attachments/1348969288001785897/1350616784461627483/Black_White_Blue_Neon_Flash_Digital_Opening_Video_Youtube_Intro_3.gif?ex=67d95da6&is=67d80c26&hm=299f79de59d12a455dd73753ff61cf5ec998c86ff9e528cb511766b429e728a3&width=688&height=386&"; // Standardwert für `/ticket`
-        const embedGif = interaction.options.getString('embed-gif') || "https://media.discordapp.net/attachments/1348969288001785897/1350616784461627483/Black_White_Blue_Neon_Flash_Digital_Opening_Video_Youtube_Intro_3.gif?ex=67d95da6&is=67d80c26&hm=299f79de59d12a455dd73753ff61cf5ec998c86ff9e528cb511766b429e728a3&width=688&height=386&"; // Standardwert für geöffnete Tickets & DMs
+        const panelGif = interaction.options.getString('panel-gif') || "https://media.discordapp.net/attachments/1348969288001785897/1350616784461627483/Black_White_Blue_Neon_Flash_Digital_Opening_Video_Youtube_Intro_3.gif";
+        const embedGif = interaction.options.getString('embed-gif') || panelGif;
 
         const ticketCategories = ticketCategoriesInput.split(",").map(cat => cat.trim()).filter(cat => cat.length > 0);
 
@@ -66,19 +63,18 @@ module.exports = {
             return interaction.reply({ content: "❌ Error: No valid ticket categories specified!", ephemeral: true });
         }
 
-        const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath)) : {};
-
+        const settings = loadJSON(ticketSettingsPath);
         settings[guildId] = {
             ticketName,
             categoryId: category.id,
             supportRoleId: supportRole.id,
             color,
-            panelGif,  // ✅ GIF für `/ticket`
-            embedGif,  // ✅ GIF für geöffnete Tickets & DMs
+            panelGif,
+            embedGif,
             categories: ticketCategories.map(name => ({ name }))
         };
 
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4));
+        saveJSON(ticketSettingsPath, settings);
 
         const embed = new EmbedBuilder()
             .setColor(color)
@@ -90,7 +86,7 @@ module.exports = {
                 { name: "🎨 Color", value: color, inline: true },
                 { name: "🎟️ Ticket-Category", value: ticketCategories.join(", "), inline: false }
             )
-            .setImage(panelGif); // ✅ Zeigt das `/ticket` GIF in der Bestätigung
+            .setImage(panelGif);
 
         await interaction.reply({ embeds: [embed] });
     }

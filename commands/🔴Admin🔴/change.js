@@ -1,17 +1,15 @@
 const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const botSettingsPath = path.join(__dirname, '../../config/botSettings.json');
+const { loadJSON, saveJSON } = require('../../utils/filemanager');
+const { botSettingsPath } = require('../../utils/paths');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('change')
-        .setDescription('Changes the bots nickname (only for this server).')
+        .setDescription('Changes the bot\'s nickname (only for this server).')
         .addStringOption(option =>
             option.setName('nickname')
                 .setDescription('Enter a new nickname for the bot.')
-                .setRequired(false)
+                .setRequired(true)
         ),
 
     async execute(interaction) {
@@ -21,26 +19,19 @@ module.exports = {
 
         const guildId = interaction.guild.id;
         const newNickname = interaction.options.getString('nickname');
-
-        if (!newNickname) {
-            return interaction.reply({ content: "❌ Please enter a nickname!", ephemeral: true });
-        }
-
         let responseMessage = "";
 
-        // **🌟 Ändere den Nickname nur auf diesem Server**
         try {
             await interaction.guild.members.me.setNickname(newNickname);
-            responseMessage += `✅ Nickname got changed: **"${newNickname}"**\n`;
+            responseMessage += `✅ Nickname changed to: **"${newNickname}"**\n`;
 
-            // **🌟 Speichere die Änderung in der JSON-Datei**
-            let settings = fs.existsSync(botSettingsPath) ? JSON.parse(fs.readFileSync(botSettingsPath, 'utf8')) : {};
+            const settings = loadJSON(botSettingsPath);
             if (!settings[guildId]) settings[guildId] = {};
             settings[guildId].nickname = newNickname;
-            fs.writeFileSync(botSettingsPath, JSON.stringify(settings, null, 4));
+            saveJSON(botSettingsPath, settings);
 
         } catch (error) {
-            responseMessage += `❌ Error: ${error.message}\n`;
+            responseMessage += `❌ Error: ${error.message}`;
         }
 
         await interaction.reply({ content: responseMessage, ephemeral: true });

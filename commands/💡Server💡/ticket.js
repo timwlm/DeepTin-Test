@@ -1,8 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-
-const settingsPath = path.join(__dirname, '../../config/ticketSettings.json');
+const { loadJSON } = require('../../utils/filemanager');
+const { ticketSettingsPath } = require('../../utils/paths');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -11,19 +9,14 @@ module.exports = {
 
     async execute(interaction) {
         const guildId = interaction.guild.id;
+        const settings = loadJSON(ticketSettingsPath);
 
-        if (!fs.existsSync(settingsPath)) {
-            return interaction.reply({ content: "⚠️ /ticket-setup is not setted.", ephemeral: true });
+        const guildSettings = settings[guildId];
+        if (!guildSettings || !Array.isArray(guildSettings.categories) || guildSettings.categories.length === 0) {
+            return interaction.reply({ content: "⚠️ This category is not existing or /ticket-setup is missing.", ephemeral: true });
         }
 
-        const settingsData = fs.readFileSync(settingsPath);
-        const settings = JSON.parse(settingsData);
-
-        if (!settings[guildId] || !settings[guildId].categories || settings[guildId].categories.length === 0) {
-            return interaction.reply({ content: "⚠️ This category is not existing.", ephemeral: true });
-        }
-
-        const { ticketName, color, panelGif, categories } = settings[guildId];
+        const { ticketName, color, panelGif, categories } = guildSettings;
 
         const embed = new EmbedBuilder()
             .setColor(color || "#0099ff")
@@ -39,7 +32,7 @@ module.exports = {
                 "Dann erstelle gerne ein Ticket und dir wird so schnell wie möglich geholfen.\n\n" +
                 "Wähle eine Kategorie aus dem Dropdown-Menü unten, um ein Ticket zu eröffnen."
             )
-            .setImage(panelGif) // ✅ Hier wird das `/ticket` GIF genutzt
+            .setImage(panelGif || null)
             .setTimestamp();
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -47,7 +40,7 @@ module.exports = {
             .setPlaceholder("🎟️ Choose a Ticket-Category")
             .addOptions(
                 categories.slice(0, 25).map((ticket, index) => ({
-                    label: ticket.name.slice(0, 100),
+                    label: ticket.name?.slice(0, 100) || `Category ${index + 1}`,
                     value: `ticket_${index}`
                 }))
             );

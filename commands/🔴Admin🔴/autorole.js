@@ -2,7 +2,10 @@ const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-const autoroleSettingsPath = path.join(__dirname, '../../config/autoroleSettings.json');
+const { autoroleSettingsPath } = require('../../utils/paths');
+
+console.log("✅ Pfad zur JSON:", autoroleSettingsPath);
+console.log("📂 Schreibe nach:", autoroleSettingsPath);
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -77,14 +80,37 @@ module.exports = {
         if (selectedRoles.length === 0) {
             return interaction.reply({ content: "❌ You have to choose at least one role!", ephemeral: true });
         }
-
+        console.log("🛠 Speicherpfad:", autoroleSettingsPath);
         console.log(`✅ /autorole setted! Role: ${selectedRoles.map(id => `<@&${id}>`).join(', ')}`);
 
         const settings = fs.existsSync(autoroleSettingsPath) ? JSON.parse(fs.readFileSync(autoroleSettingsPath, 'utf8')) : {};
-        settings[guildId] = { roles: selectedRoles };
+        if (!settings[guildId]) {
+            settings[guildId] = {};
+        }
+        settings[guildId].roles = selectedRoles;
 
-        fs.writeFileSync(autoroleSettingsPath, JSON.stringify(settings, null, 4));
+        try {
+            const { saveJSON } = require('../../utils/filemanager');
+            saveJSON(autoroleSettingsPath, settings);
+            console.log("✅ Einstellungen gespeichert:", settings[guildId]);
+        } catch (error) {
+            console.error("❌ Fehler beim Speichern der Autorole-Einstellungen:", error);
+        }
+
+        if (interaction.commandName === "autorole-show") {
+            const settings = JSON.parse(fs.readFileSync(autoroleSettingsPath, 'utf8'));
+            const data = settings[interaction.guild.id];
+
+            return interaction.reply({
+                content: `📄 Gespeicherte Rollen: ${data?.roles?.map(id => `<@&${id}>`).join(", ") || "Keine gefunden."}`,
+                ephemeral: true
+            });
+        }
 
         await interaction.reply({ content: `✅ New members now automatically receive the following roles:  ${selectedRoles.map(id => `<@&${id}>`).join(', ')}`, ephemeral: true });
     }
 };
+const test = JSON.parse(fs.readFileSync(autoroleSettingsPath, 'utf8'));
+console.log("📂 NEU GELADEN:", JSON.stringify(test, null, 4));
+console.log("📄 Dateiinhalt jetzt:", fs.readFileSync(autoroleSettingsPath, 'utf8'));
+console.log("🧠 FULL FILE:", fs.readFileSync(autoroleSettingsPath, 'utf8'));

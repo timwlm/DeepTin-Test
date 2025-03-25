@@ -1,12 +1,7 @@
 {
-    "1347572289750700102": {
-        "welcomeChannelId": "1349786896968056945",
-        "welcomeGif": "https://cdn.discordapp.com/attachments/1348390411349131325/1351516940664963153/welcome.gif?ex=67dd4cbc&is=67dbfb3c&hm=1502c136d9903d244681e348e272a70203d28e0717b19f95f34cfa8bdbcbe6b7&",
-        "welcomeText": "Welcome to DeepTin - Bot Support! Have fun, and if you have any questions about the bot or our server, feel free to contact us via a ticket or directly with the creators."
-    },
-    "1296008107419369503": {
-        "welcomeChannelId": "1305243962591678577",
-        "welcomeGif": "https://media.discordapp.net/attachments/1348969288001785897/1350616784461627483/Black_White_Blue_Neon_Flash_Digital_Opening_Video_Youtube_Intro_3.gif?ex=67dd5226&is=67dc00a6&hm=45f2179c69a4cf2e144f85ec1cc882988403ae798736bb4e2a1b691064690a34&width=688&height=386&",
-        "welcomeText": "lol"
+    "1352045759410733201": {
+        "welcomeChannelId": "1352046233803292712",
+        "welcomeGif": "https://cdn.discordapp.com/attachments/1350234746395037787/1351145105620209664/DeepTinSES.gif?ex=67e332b0&is=67e1e130&hm=acd230f513d00369ddc3761cdf4fb285b5c4983dc186d60668f7acb10f1b9f69&",
+        "welcomeText": "Test Willkommen"
     }
 }
